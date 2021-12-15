@@ -1,0 +1,7 @@
+Citation:
+
+If you use HAPI2 in your research or software development, please cite it using the link to the Github site:
+
+http://github.com/hitranonline/hapi2
+
+Copyright 2018 HITRAN team (http://hitran.org/).
