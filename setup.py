@@ -1,42 +1,30 @@
-from setuptools import setup
-from hapi2 import __version__
+from setuptools import find_packages, setup
+
 
 setup(
-    name='hapi2',
-    version=__version__,
-    packages=[
-        'hapi2',
-        'hapi2.db',
-        'hapi2.db.sqlalchemy',
-        'hapi2.db.sqlalchemy.sqlite',
-        'hapi2.db.sqlalchemy.mysql',
-        
-        'hapi2.lbl',
-        'hapi2.web',
-        'hapi2.format',
-        'hapi2.format.hitran',
-        'hapi2.format.streamers',
-        
-        'hapi2.config',
-        
-        'hapi2.collect',
-        
-        'hapi2.utils',        
-        
-        #'hapi2.metrics',
-        #'hapi2.mixture',
-        #'hapi2.partsum',
-        #'hapi2.profile',
-        #'hapi2.units',
-        #'hapi2.xsec',
-        #'hapi2.version',
-        #'hapi2.proxy',
-        #'hapi2.abscoef.numba.cpu',
-        #'hapi2.abscoef',
-        #'hapi2.visual',
-        #'hapi2.quanta',
-        #'hapi2.quanta.lbl',
-        #'hapi2.quanta.hitran_cases',
+    name="hapi2",
+    version="0.1",
+    author="Roman Kochanov",
+    author_email="",
+    description="HITRAN Application Programming Interface (HAPI) v2",
+    url="https://github.com/hitranonline/hapi2",
+    python_requires=">=3.5",
+    packages=find_packages(),
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: BSD-2",
+        "Operating System :: OS Independent",
     ],
-    #license='BSD-2',
+    install_requires=[
+        "hitran-api",
+        "SQLAlchemy",
+        "numpy",
+        "numba",
+        "tabulate",
+        "python-dateutil",
+        "pyparsing",
+        "scipy",
+        "matplotlib",
+        "jupyter",
+    ],
 )
