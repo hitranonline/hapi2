@@ -1,2 +1,13 @@
-build/*
 __pycache__
+*.pyc
+*.bak
+build/
+dist/
+hitran_api2.egg-info/
+*~
+*.lnk
+showcase/local
+showcase/.ipynb_checkpoints/
+showcase/config.json
+showcase/server_info.json
+showcase/~tmp/
