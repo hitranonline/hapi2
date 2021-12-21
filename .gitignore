@@ -3,7 +3,7 @@ __pycache__
 *.bak
 build/
 dist/
-hitran_api2.egg-info/
+hapi2.egg-info/
 *~
 *.lnk
 showcase/local
