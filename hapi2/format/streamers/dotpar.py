@@ -8,7 +8,6 @@ import re
 import json
 
 from hapi2.format.streamer import AbstractStreamer
-from hapi2.format.registry import register
 
 from ..hitran.lbl import HITRAN_DotparParser
 
@@ -139,4 +138,3 @@ class DotparStreamer(AbstractStreamer):
         filestem = self.__header__['content']['linelist']
         for item in stream_hapi_transition_data_(tmpdir,filestem,par_line_flag=True):
             yield item
-register(DotparStreamer,'hapi/text')

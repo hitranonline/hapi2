@@ -7,7 +7,8 @@ from hapi2.db.models import get_alias_class
 
 from hapi2.config import VARSPACE, SETTINGS
 
-from hapi2.format.streamers import JSONStreamer, DotparStreamer
+#from hapi2.format.streamers import JSONStreamer, DotparStreamer
+from hapi2.format.dispatch import FormatDispatcher
 
 from .updaters import __update_and_commit_core__
 from .updaters import __insert_transitions_core__
@@ -154,7 +155,7 @@ class CRUD_Generic(models.CRUD):
     class field.
     """
     
-    __streamer_class__ = JSONStreamer
+    __format_dispatcher_class__ = FormatDispatcher
     
     @classmethod
     def __check_types__(cls,header):
@@ -171,7 +172,7 @@ class CRUD_Generic(models.CRUD):
     def update(cls,header,local=True,**argv):
         tmpdir = SETTINGS['tmpdir']
         cls.__check_types__(header)                   
-        stream = cls.__streamer_class__(basedir=tmpdir,header=header)
+        stream = cls.__format_dispatcher_class__().getStreamer(basedir=tmpdir,header=header)
         return __update_and_commit_core__(
             cls,stream,cls.__refs__,cls.__backrefs__,local=local,**argv)
         
@@ -214,13 +215,11 @@ class CRUD_Dotpar(CRUD_Generic):
     redefining fields and methods for Transition.
     """
     
-    __streamer_class__ = DotparStreamer
-    
     @classmethod
     def update(cls,header,local=True,llst_name='default',**argv):
         tmpdir = SETTINGS['tmpdir'] 
         cls.__check_types__(header)                   
-        stream = cls.__streamer_class__(basedir=tmpdir,header=header)
+        stream = cls.__format_dispatcher_class__().getStreamer(basedir=tmpdir,header=header)
         return __insert_transitions_core__(cls,stream,local=local,llst_name=llst_name)
 
 class CrossSectionData(models.CrossSectionData, CRUD_Generic):
