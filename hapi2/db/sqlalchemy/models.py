@@ -3,6 +3,7 @@ from functools import reduce
 from .base import relationship, declared_attr, query
 
 from hapi2.db import models
+from hapi2.db.models import get_alias_class
 
 from hapi2.config import VARSPACE, SETTINGS
 
@@ -57,13 +58,6 @@ def searchable_by_alias(Cls):
     Cls.get = get
     
     return Cls
-
-def get_alias_class(cls):
-    """
-    Get the Suitable Alias class for a proper aliased class.
-    """
-    return getattr(VARSPACE['db_backend'].models,
-        cls.__backrefs__['aliases']['class'])
 
 def join_with_alias(cls):
     """

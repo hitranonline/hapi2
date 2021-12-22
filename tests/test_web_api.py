@@ -132,11 +132,11 @@ def test_fetch_cross_section_spectra_ccl4():
     return elapsed_time,test_results
 
 TEST_CASES = [
-    #test_fetch_info,
-    #test_fetch_parameter_metas_all,
-    #test_fetch_sources_all,
-    #test_fetch_molecules_all,
-    #test_fetch_isotopologues_all,
+    test_fetch_info,
+    test_fetch_parameter_metas_all,
+    test_fetch_sources_all,
+    test_fetch_molecules_all,
+    test_fetch_isotopologues_all,
     test_fetch_transitions_water_tiny,
     test_fetch_transitions_water_normal,
     test_fetch_transitions_co2_large,

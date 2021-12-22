@@ -2,6 +2,13 @@ from hapi2.config import VARSPACE
 from hapi2.utils.formula import molweight,atoms,natoms
 from hapi import putRowObjectToString,HITRAN_DEFAULT_HEADER
 
+def get_alias_class(cls):
+    """
+    Get the Suitable Alias class for a proper aliased class.
+    """
+    return getattr(VARSPACE['db_backend'].models,
+        cls.__backrefs__['aliases']['class'])
+
 def searchable(Cls):
     """
     Decorator for aliases.
@@ -52,8 +59,6 @@ def searchable_by_alias(Cls):
         if self in VARSPACE['session']:
             return
         if name is not None:
-            #self.iso_name = name
-            self.name = name
             al = get_alias_class(self.__class__)(name); al.type = 'generic'
             self.aliases.append(al)
 
