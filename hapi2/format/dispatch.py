@@ -1,7 +1,5 @@
 from .streamers import DotparStreamer, JSONStreamer
 
-from .registry import __REGISTERED_STREAMERS__
-
 class FormatDispatcher:
     
     """ to add a custom data streamers, make a child class and update 

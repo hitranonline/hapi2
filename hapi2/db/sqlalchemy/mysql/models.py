@@ -30,7 +30,7 @@ table_engine = SETTINGS['table_engine']
 def search_string(query,cls,field,pattern):
     return query.filter(getattr(cls,field).ilike(pattern))
 
-class CrossSectionData(models.CrossSectionData, Base):
+class CrossSectionData(models.CrossSectionData, models.CRUD_Generic, Base):
 
     id = Column(INTTYPE,primary_key=True)
     header_id = Column('header_id',INTTYPE,nullable=IS_NULLABLE) # ,ForeignKey('cross_section.id')
@@ -41,7 +41,7 @@ class CrossSectionData(models.CrossSectionData, Base):
         {'mysql_engine':table_engine},
     )
 
-class CrossSection(models.CrossSection, Base):
+class CrossSection(models.CrossSection, models.CRUD_Generic, Base):
 
     id = Column(INTTYPE,primary_key=True,autoincrement=False)
     molecule_alias_id = Column('molecule_alias_id',INTTYPE,nullable=IS_NULLABLE) # ,ForeignKey('molecule_alias.id')
@@ -67,7 +67,7 @@ class CrossSection(models.CrossSection, Base):
         {'mysql_engine':table_engine},
     )
 
-class SourceAlias(models.SourceAlias, Base):
+class SourceAlias(models.SourceAlias, models.CRUD_Generic, Base):
 
     id = Column(INTTYPE,primary_key=True,autoincrement=False)
     source_id = Column('source_id',INTTYPE,nullable=True) # ,ForeignKey('source.id')
@@ -78,7 +78,7 @@ class SourceAlias(models.SourceAlias, Base):
         {'mysql_engine':table_engine},
     )
 
-class Source(models.Source, Base):
+class Source(models.Source, models.CRUD_Generic, Base):
 
     id = Column(INTTYPE,primary_key=True,autoincrement=False)
     short_alias = Column('short_alias',VARCHARTYPE(250),nullable=IS_NULLABLE,unique=IS_UNIQUE)
@@ -100,7 +100,7 @@ class Source(models.Source, Base):
         {'mysql_engine':table_engine},
     )
 
-class ParameterMeta(models.ParameterMeta, Base):
+class ParameterMeta(models.ParameterMeta, models.CRUD_Generic, Base):
 
     id = Column(INTTYPE, primary_key=True,autoincrement=False)
     name = Column('name',VARCHARTYPE(250),unique=IS_UNIQUE,nullable=IS_NULLABLE)
@@ -120,7 +120,7 @@ linelist_vs_transition = Table('linelist_vs_transition', Base.metadata,
     mysql_engine=table_engine,
 )
 
-class Linelist(models.Linelist, Base):
+class Linelist(models.Linelist, models.CRUD_Generic, Base):
 
     id = Column('id',INTTYPE,primary_key=True,autoincrement=False)
     name = Column('name',VARCHARTYPE(250),unique=IS_UNIQUE,nullable=False)
@@ -130,7 +130,7 @@ class Linelist(models.Linelist, Base):
         {'mysql_engine':table_engine},
     )
 
-class Transition(models.Transition, Base):
+class Transition(models.Transition, models.CRUD_Dotpar, Base):
 
     id = Column(INTTYPE,primary_key=True,autoincrement=False)
     isotopologue_alias_id = Column('isotopologue_alias_id',INTTYPE,nullable=IS_NULLABLE) #,ForeignKey('isotopologue_alias.id')
@@ -163,7 +163,7 @@ class Transition(models.Transition, Base):
         {'mysql_engine':table_engine},
     )
 
-class IsotopologueAlias(models.IsotopologueAlias, Base):
+class IsotopologueAlias(models.IsotopologueAlias, models.CRUD_Generic, Base):
 
     id = Column(INTTYPE,primary_key=True,autoincrement=False)
     isotopologue_id = Column('isotopologue_id',INTTYPE) # , ForeignKey('molecule.id')
@@ -174,7 +174,7 @@ class IsotopologueAlias(models.IsotopologueAlias, Base):
         {'mysql_engine':table_engine},
     )
 
-class Isotopologue(models.Isotopologue, Base):
+class Isotopologue(models.Isotopologue, models.CRUD_Generic, Base):
     
     id = Column(INTTYPE,primary_key=True,autoincrement=False)
     molecule_alias_id = Column('molecule_alias_id',INTTYPE,nullable=IS_NULLABLE) #,ForeignKey('molecule_alias.id')
@@ -199,7 +199,7 @@ molecule_alias_vs_molecule_category = Table('molecule_alias_vs_molecule_category
     mysql_engine=table_engine,
 )      
 
-class MoleculeCategory(models.MoleculeCategory, Base):
+class MoleculeCategory(models.MoleculeCategory, models.CRUD_Generic, Base):
     
     id = Column(INTTYPE,primary_key=True,autoincrement=False)
     category = Column('category',VARCHARTYPE(250),unique=IS_UNIQUE,nullable=IS_NULLABLE)
@@ -208,7 +208,7 @@ class MoleculeCategory(models.MoleculeCategory, Base):
         {'mysql_engine':table_engine},
     )
 
-class MoleculeAlias(models.MoleculeAlias,Base):
+class MoleculeAlias(models.MoleculeAlias, models.CRUD_Generic,Base):
     
     id = Column(INTTYPE, primary_key=True,autoincrement=False)
     molecule_id = Column('molecule_id',INTTYPE,nullable=True) # , ForeignKey('molecule.id')
@@ -219,7 +219,7 @@ class MoleculeAlias(models.MoleculeAlias,Base):
         {'mysql_engine':table_engine},
     )
     
-class Molecule(models.Molecule, Base):
+class Molecule(models.Molecule, models.CRUD_Generic, Base):
     
     id = Column(INTTYPE,primary_key=True,autoincrement=False)
     common_name = Column('common_name',VARCHARTYPE(255))

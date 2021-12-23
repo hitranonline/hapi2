@@ -7,7 +7,6 @@ from hapi2.db.models import get_alias_class
 
 from hapi2.config import VARSPACE, SETTINGS
 
-#from hapi2.format.streamers import JSONStreamer, DotparStreamer
 from hapi2.format.dispatch import FormatDispatcher
 
 from .updaters import __update_and_commit_core__
@@ -151,7 +150,7 @@ class CRUD_Generic(models.CRUD):
     HAPI headers are given in plain JSON format.
     
     To override the default behaviour (like for Transition class)
-    create a child class redefining the "update" method and "__streamer_class__"
+    create a child class redefining the "update" method and "__format_dispatcher_class__"
     class field.
     """
     
@@ -222,7 +221,7 @@ class CRUD_Dotpar(CRUD_Generic):
         stream = cls.__format_dispatcher_class__().getStreamer(basedir=tmpdir,header=header)
         return __insert_transitions_core__(cls,stream,local=local,llst_name=llst_name)
 
-class CrossSectionData(models.CrossSectionData, CRUD_Generic):
+class CrossSectionData(models.CrossSectionData):
 
     @declared_attr
     def __tablename__(src):
@@ -233,7 +232,7 @@ class CrossSectionData(models.CrossSectionData, CRUD_Generic):
         return relationship('CrossSection',back_populates='data',
             primaryjoin='cross_section.c.id==foreign(cross_section_data.c.header_id)')
 
-class CrossSection(models.CrossSection, CRUD_Generic):
+class CrossSection(models.CrossSection):
 
     @declared_attr
     def __tablename__(cls):
@@ -253,7 +252,7 @@ class CrossSection(models.CrossSection, CRUD_Generic):
             primaryjoin = 'cross_section.c.id==foreign(cross_section_data.c.header_id)')
 
 @searchable__alias
-class SourceAlias(models.SourceAlias, CRUD_Generic):
+class SourceAlias(models.SourceAlias):
 
     @declared_attr
     def __tablename__(cls):
@@ -270,7 +269,7 @@ class SourceAlias(models.SourceAlias, CRUD_Generic):
             primaryjoin='source_alias.c.id==foreign(cross_section.c.source_alias_id)')
 
 @searchable_by_alias
-class Source(models.Source, CRUD_Generic):
+class Source(models.Source):
     
     @declared_attr
     def __tablename__(cls):
@@ -296,7 +295,7 @@ class Source(models.Source, CRUD_Generic):
             filter(models.SourceAlias.alias.ilike(srcname+'\0%')).first()
 
 @searchable__name
-class ParameterMeta(models.ParameterMeta, CRUD_Generic):
+class ParameterMeta(models.ParameterMeta):
 
     __identity__ = 'name'
 
@@ -305,7 +304,7 @@ class ParameterMeta(models.ParameterMeta, CRUD_Generic):
         return 'parameter_meta'
 
 @searchable__name
-class Linelist(models.Linelist, CRUD_Generic):
+class Linelist(models.Linelist):
 
     @declared_attr
     def __tablename__(cls):
@@ -317,7 +316,7 @@ class Linelist(models.Linelist, CRUD_Generic):
             primaryjoin='linelist.c.id==foreign(linelist_vs_transition.c.linelist_id)',
             secondaryjoin='transition.c.id==foreign(linelist_vs_transition.c.transition_id)')
 
-class Transition(models.Transition, CRUD_Dotpar):
+class Transition(models.Transition):
 
     @declared_attr
     def __tablename__(cls):
@@ -334,7 +333,7 @@ class Transition(models.Transition, CRUD_Dotpar):
             secondaryjoin='linelist.c.id==foreign(linelist_vs_transition.c.linelist_id)')
 
 @searchable__alias
-class IsotopologueAlias(models.IsotopologueAlias, CRUD_Generic):
+class IsotopologueAlias(models.IsotopologueAlias):
 
     @declared_attr
     def __tablename__(cls):
@@ -351,7 +350,7 @@ class IsotopologueAlias(models.IsotopologueAlias, CRUD_Generic):
             primaryjoin='isotopologue_alias.c.id==foreign(transition.c.isotopologue_alias_id)')
 
 @searchable_by_alias
-class Isotopologue(models.Isotopologue, CRUD_Generic):
+class Isotopologue(models.Isotopologue):
 
     @declared_attr
     def __tablename__(cls):
@@ -386,7 +385,7 @@ class Isotopologue(models.Isotopologue, CRUD_Generic):
                 )
         return transs
         
-class MoleculeCategory(models.MoleculeCategory, CRUD_Generic):
+class MoleculeCategory(models.MoleculeCategory):
     
     @declared_attr 
     def __tablename__(cls):
@@ -399,7 +398,7 @@ class MoleculeCategory(models.MoleculeCategory, CRUD_Generic):
             secondaryjoin='molecule_alias.c.id==foreign(molecule_alias_vs_molecule_category.c.molecule_alias_id)')
 
 @searchable__alias
-class MoleculeAlias(models.MoleculeAlias, CRUD_Generic):
+class MoleculeAlias(models.MoleculeAlias):
 
     @declared_attr
     def __tablename__(cls):
@@ -427,7 +426,7 @@ class MoleculeAlias(models.MoleculeAlias, CRUD_Generic):
             secondaryjoin='molecule_category.c.id==foreign(molecule_alias_vs_molecule_category.c.molecule_category_id)')
 
 @searchable_by_alias
-class Molecule(models.Molecule, CRUD_Generic):
+class Molecule(models.Molecule):
 
     @declared_attr
     def __tablename__(cls):

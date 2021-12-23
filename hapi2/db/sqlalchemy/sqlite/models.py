@@ -27,7 +27,7 @@ IS_NULLABLE = True
 def search_string(query,cls,field,pattern):
     return query.filter(getattr(cls,field).ilike(pattern+'\0%'))
 
-class CrossSectionData(models.CrossSectionData, Base):
+class CrossSectionData(models.CrossSectionData, models.CRUD_Generic, Base):
 
     id = Column(INTTYPE,primary_key=True)
     header_id = Column('header_id',INTTYPE,nullable=IS_NULLABLE) # ,ForeignKey('cross_section.id')
@@ -37,7 +37,7 @@ class CrossSectionData(models.CrossSectionData, Base):
     __table_args__ = (
     )
 
-class CrossSection(models.CrossSection, Base):
+class CrossSection(models.CrossSection, models.CRUD_Generic, Base):
 
     id = Column(INTTYPE,primary_key=True)
     molecule_alias_id = Column('molecule_alias_id',INTTYPE,nullable=IS_NULLABLE) # ,ForeignKey('molecule_alias.id')
@@ -63,7 +63,7 @@ class CrossSection(models.CrossSection, Base):
     )
 
 
-class SourceAlias(models.SourceAlias, Base):
+class SourceAlias(models.SourceAlias, models.CRUD_Generic, Base):
 
     id = Column(INTTYPE,primary_key=True)
     source_id = Column('source_id',INTTYPE,nullable=True) # ,ForeignKey('source.id')
@@ -73,7 +73,7 @@ class SourceAlias(models.SourceAlias, Base):
     __table_args__ = (
     )
 
-class Source(models.Source, Base):
+class Source(models.Source, models.CRUD_Generic, Base):
 
     id = Column(INTTYPE,primary_key=True)
     short_alias = Column('short_alias',VARCHARTYPE(255),nullable=IS_NULLABLE,unique=IS_UNIQUE)
@@ -94,7 +94,7 @@ class Source(models.Source, Base):
     __table_args__ = (
     )
 
-class ParameterMeta(models.ParameterMeta, Base):
+class ParameterMeta(models.ParameterMeta, models.CRUD_Generic, Base):
 
     id = Column(INTTYPE, primary_key=True)
     name = Column('name',VARCHARTYPE(255),unique=IS_UNIQUE,nullable=IS_NULLABLE)
@@ -112,7 +112,7 @@ linelist_vs_transition = Table('linelist_vs_transition', Base.metadata,
     #Index('linelist_vs_transition__linelist_id','linelist_id'), # fast search for transitions for given linelist
 )
 
-class Linelist(models.Linelist, Base):
+class Linelist(models.Linelist, models.CRUD_Generic, Base):
 
     id = Column('id',INTTYPE,primary_key=True)
     name = Column('name',VARCHARTYPE(255),unique=IS_UNIQUE,nullable=False)
@@ -121,7 +121,7 @@ class Linelist(models.Linelist, Base):
     __table_args__ = (
     )
 
-class Transition(models.Transition, Base):
+class Transition(models.Transition, models.CRUD_Dotpar, Base):
 
     id = Column(INTTYPE,primary_key=True)
     isotopologue_alias_id = Column('isotopologue_alias_id',INTTYPE,nullable=IS_NULLABLE) #,ForeignKey('isotopologue_alias.id')
@@ -153,7 +153,7 @@ class Transition(models.Transition, Base):
         #Index('transition__isotopologue_alias_id', isotopologue_alias_id),
     )
 
-class IsotopologueAlias(models.IsotopologueAlias, Base):
+class IsotopologueAlias(models.IsotopologueAlias, models.CRUD_Generic, Base):
 
     id = Column(INTTYPE, primary_key=True)
     isotopologue_id = Column('isotopologue_id',INTTYPE) # , ForeignKey('molecule.id')
@@ -163,7 +163,7 @@ class IsotopologueAlias(models.IsotopologueAlias, Base):
     __table_args__ = (
     )
 
-class Isotopologue(models.Isotopologue, Base):
+class Isotopologue(models.Isotopologue, models.CRUD_Generic, Base):
     
     id = Column(INTTYPE,primary_key=True)
     molecule_alias_id = Column('molecule_alias_id',INTTYPE,nullable=IS_NULLABLE) #,ForeignKey('molecule_alias.id')
@@ -186,7 +186,7 @@ molecule_alias_vs_molecule_category = Table('molecule_alias_vs_molecule_category
     #Index('molecule_alias_vs_molecule_category__molecule_alias_id','molecule_alias_id'), # fast search for molecule aliases for given category
 )      
 
-class MoleculeCategory(models.MoleculeCategory, Base):
+class MoleculeCategory(models.MoleculeCategory, models.CRUD_Generic, Base):
     
     id = Column(INTTYPE,primary_key=True)
     category = Column('category',VARCHARTYPE(255),unique=IS_UNIQUE,nullable=IS_NULLABLE)
@@ -194,7 +194,7 @@ class MoleculeCategory(models.MoleculeCategory, Base):
     __table_args__ = (
     )
 
-class MoleculeAlias(models.MoleculeAlias,Base):
+class MoleculeAlias(models.MoleculeAlias, models.CRUD_Generic,Base):
     
     id = Column(INTTYPE, primary_key=True)
     molecule_id = Column('molecule_id',INTTYPE,nullable=True) # , ForeignKey('molecule.id')
@@ -204,7 +204,7 @@ class MoleculeAlias(models.MoleculeAlias,Base):
     __table_args__ = (
     )
     
-class Molecule(models.Molecule, Base):
+class Molecule(models.Molecule, models.CRUD_Generic, Base):
     
     id = Column(INTTYPE,primary_key=True)
     common_name = Column('common_name',VARCHARTYPE(255))
