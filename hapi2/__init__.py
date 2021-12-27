@@ -33,6 +33,8 @@ from hapi2.format.utils import read_header
 
 db_backend = VARSPACE['db_backend']
 
+session = VARSPACE['session']
+
 __db_backend_objects__ = [
     'query',
     'Molecule','MoleculeAlias','Transition','Source',

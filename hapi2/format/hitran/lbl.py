@@ -32,8 +32,8 @@ class HITRAN_DotparParser:
         ierr                = lambda par_line:        par_line[127:133]  ,
         iref                = lambda par_line:        par_line[133:145]  ,
         line_mixing_flag    = lambda par_line:        par_line[145:146]  ,
-        gp                  = lambda par_line: float( par_line[146:153] ),
-        gpp                 = lambda par_line: float( par_line[153:160] ),  
+        gp                  = lambda par_line: int( float( par_line[146:153] ) ),
+        gpp                 = lambda par_line: int( float( par_line[153:160] ) ),  
     )    
     def __init__(self,par_line):
         self.par_line = par_line

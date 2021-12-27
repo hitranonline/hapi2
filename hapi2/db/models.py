@@ -164,22 +164,22 @@ class CrossSectionData:
 class CrossSection:
 
     __keys__ = (
-        'id',
-        'molecule_alias_id',
-        'source_alias_id',
-        'numin',
-        'numax',
-        'npnts',
-        'sigma_max',
-        'temperature',
-        'pressure',
-        'resolution',
-        'resolution_units',
-        'broadener',
-        'description',
-        'apodization',
-        'json',
-        'filename',
+        ('id',                 {'type':int}),
+        ('molecule_alias_id',  {'type':int}),
+        ('source_alias_id',    {'type':int}) ,
+        ('numin',              {'type':float}),
+        ('numax',              {'type':float}),
+        ('npnts',              {'type':int}),
+        ('sigma_max',          {'type':float}),
+        ('temperature',        {'type':float}),
+        ('pressure',           {'type':float}),
+        ('resolution',         {'type':float}),
+        ('resolution_units',   {'type':str}),
+        ('broadener',          {'type':str}),
+        ('description',        {'type':str}),
+        ('apodization',        {'type':str}),
+        ('json',               {'type':str}),
+        ('filename',           {'type':str}),
     )
 
     __identity__ = 'id'
@@ -321,10 +321,10 @@ class CrossSection:
 class SourceAlias:
 
     __keys__ = (
-        'id',
-        'source_id',
-        'alias',
-        'type'
+        ('id',         {'type':int}),
+        ('source_id',  {'type':int}),
+        ('alias',      {'type':str}),
+        ('type',       {'type':str}),
     )
         
     __identity__ = 'alias'
@@ -340,10 +340,23 @@ class SourceAlias:
 @searchable_by_alias
 class Source:
 
-    __keys__ = ('id','type','authors','title',
-                'journal','volume','page_start','page_end',
-                'year','institution','note','doi','bibcode',
-                'url','short_alias')
+    __keys__ = (
+        ('id',           {'type':int}),
+        ('type',         {'type':str}),
+        ('authors',      {'type':str}),
+        ('title',        {'type':str}),
+        ('journal',      {'type':str}),
+        ('volume',       {'type':str}),
+        ('page_start',   {'type':str}),
+        ('page_end',     {'type':str}),
+        ('year',         {'type':int}),
+        ('institution',  {'type':str}),
+        ('note',         {'type':str}),
+        ('doi',          {'type':str}),
+        ('bibcode',      {'type':str}),
+        ('url',          {'type':str}),
+        ('short_alias',  {'type':str}),
+    )
 
     __identity__ = 'id'
     
@@ -420,12 +433,12 @@ class Source:
 class ParameterMeta:
 
     __keys__ = (
-        'id',
-        'name',
-        'type',
-        'description',
-        'format',
-        'units',
+        ('id',           {'type':int}),
+        ('name',         {'type':str}),
+        ('type',         {'type':str}),
+        ('description',  {'type':str}),
+        ('format',       {'type':str}),
+        ('units',        {'type':str}),
     )
 
     __identity__ = 'name'
@@ -438,9 +451,9 @@ class ParameterMeta:
 class Linelist:
   
     __keys__ = (
-        'id',
-        'name',
-        'description',
+        ('id',           {'type':int}),
+        ('name',         {'type':str}),
+        ('description',  {'type':str}),
     )
 
     __identity__ = 'name'
@@ -471,28 +484,28 @@ def get_state_key(state):
 class Transition:
 
     __keys__ = (
-        'id',
-        'isotopologue_alias_id',
-        'molec_id',
-        'local_iso_id',
-        'nu',
-        'sw',
-        'a',
-        'gamma_air',
-        'gamma_self',
-        'elower',
-        'n_air',
-        'delta_air',
-        'global_upper_quanta',
-        'global_lower_quanta',
-        'local_upper_quanta',
-        'local_lower_quanta',
-        'ierr',
-        'iref',
-        'line_mixing_flag',
-        'gp',
-        'gpp',
-        'extra',
+        ('id',                     {'type':int}),
+        ('isotopologue_alias_id',  {'type':int}),
+        ('molec_id',               {'type':int}),
+        ('local_iso_id',           {'type':int}),
+        ('nu',                     {'type':float}),
+        ('sw',                     {'type':float}),
+        ('a',                      {'type':float}),
+        ('gamma_air',              {'type':float}),
+        ('gamma_self',             {'type':float}),
+        ('elower',                 {'type':float}),
+        ('n_air',                  {'type':float}),
+        ('delta_air',              {'type':float}),
+        ('global_upper_quanta',    {'type':str}),
+        ('global_lower_quanta',    {'type':str}),
+        ('local_upper_quanta',     {'type':str}),
+        ('local_lower_quanta',     {'type':str}),
+        ('ierr',                   {'type':str}),
+        ('iref',                   {'type':str}),
+        ('line_mixing_flag',       {'type':str}),
+        ('gp',                     {'type':int}),
+        ('gpp',                    {'type':int}),
+        ('extra',                  {'type':str}),
     )
 
     __identity__ = 'id'
@@ -562,10 +575,10 @@ class Transition:
 class IsotopologueAlias:
 
     __keys__ = (
-        'id',
-        'isotopologue_id',
-        'alias',
-        'type',
+        ('id',               {'type':int}),
+        ('isotopologue_id',  {'type':int}),
+        ('alias',            {'type':str}),
+        ('type',             {'type':str}),
     )
 
     __identity__ = 'alias'
@@ -589,15 +602,16 @@ class IsotopologueAlias:
 class Isotopologue:
 
     __keys__ =  (
-        'id',
-        'isoid',
-        'inchi',
-        'inchikey',
-        'iso_name',
-        'iso_name_html',
-        'abundance',
-        'mass',
-        'afgl_code',
+        ('id',                 {'type':int}),
+        ('molecule_alias_id',  {'type':int}),
+        ('isoid',              {'type':int}),
+        ('inchi',              {'type':str}),
+        ('inchikey',           {'type':str}),
+        ('iso_name',           {'type':str}),
+        ('iso_name_html',      {'type':str}),
+        ('abundance',          {'type':float}),
+        ('mass',               {'type':float}),
+        ('afgl_code',          {'type':str}),
     )
 
     __identity__ = 'iso_name'
@@ -636,8 +650,8 @@ class Isotopologue:
 class MoleculeCategory:
 
     __keys__ = (
-        'id',
-        'category',
+        ('id',        {'type':int}),
+        ('category',  {'type':str}),
     )
 
     __identity__ = 'category'
@@ -675,10 +689,10 @@ class MoleculeCategory:
 class MoleculeAlias:
 
     __keys__ = (
-        'id',
-        'molecule_id',
-        'alias',
-        'type',
+        ('id',           {'type':int}),
+        ('molecule_id',  {'type':int}),
+        ('alias',        {'type':str}),
+        ('type',         {'type':str}),
     )
 
     __identity__ = 'alias'
@@ -699,13 +713,13 @@ class MoleculeAlias:
 class Molecule:
 
     __keys__ =  (
-        'id',
-        'common_name',
-        'ordinary_formula',
-        'ordinary_formula_html',
-        'stoichiometric_formula',
-        'inchi',
-        'inchikey'
+        ('id',                      {'type':int}),
+        ('common_name',             {'type':str}),
+        ('ordinary_formula',        {'type':str}),
+        ('ordinary_formula_html',   {'type':str}),
+        ('stoichiometric_formula',  {'type':str}),
+        ('inchi',                   {'type':str}),
+        ('inchikey',                {'type':str}),
     )
 
     __identity__ = 'common_name'

@@ -320,7 +320,8 @@ def get_transitions_by_ids(ids):
     """
     return []
 
-NBULK = 300000 # EACH BULK CORRESPONDS TO SEPARATE TRANSACTION
+#NBULK = 300000 # EACH BULK CORRESPONDS TO SEPARATE TRANSACTION
+NBULK = 150000 # EACH BULK CORRESPONDS TO SEPARATE TRANSACTION
 #def __insert_transitions_core__(models,header,llst_name='DEFAULT'):   DELETE THIS LINE !!!!!!!
 def __insert_transitions_core__(cls,stream,local=True,llst_name='default'):
     """
@@ -457,7 +458,7 @@ def __insert_base_items_core__(cls,ITEM_DICTS,local=True):
     # ---> update existing transitions
     if ITEM_DICTS_2:
         # THE RIGHT WAY IS MULTIPLE WHERES, INSTEAD OF USING "AND" OPERATION!!!
-        insert_values = {pname:bindparam(pname) for pname in cls.__keys__}
+        insert_values = {pname:bindparam(pname) for pname,_ in cls.__keys__}
         stmt = cls.__table__.update().\
             where(
                 cls.__table__.c.id == bindparam('id')
@@ -531,7 +532,7 @@ def __insert_alias_items_core__(cls,ITEM_DICTS,local=True):
         #    cls.__table__.c.alias,
         #]
         #stmt = sql.select(args).\
-        stmt = sql.select([getattr(cls.__table__.c,key) for key in cls.__keys__]).\
+        stmt = sql.select([getattr(cls.__table__.c,key) for key,_ in cls.__keys__]).\
             where(
                 #cls.__table__.c.alias.in_(vals_chunk)
                 sql.func.lower(cls.__table__.c.alias).in_(vals_chunk)
@@ -611,7 +612,7 @@ def __insert_alias_items_core__(cls,ITEM_DICTS,local=True):
         #print('ITEM_DICTS_2>>>',json.dumps([{b:e[b] for b in e if b not in ['__parent__','__parents__']} for e in ITEM_DICTS_2],indent=3))
         #print('ITEM_DICTS_2>>>',ITEM_DICTS_2)
         # THE RIGHT WAY IS MULTIPLE WHERES, INSTEAD OF USING "AND" OPERATION!!!
-        insert_values = {pname:bindparam(pname) for pname in cls.__keys__}
+        insert_values = {pname:bindparam(pname) for pname,_ in cls.__keys__}
         stmt = cls.__table__.update().\
             where(
                 cls.__table__.c.id == bindparam('id')

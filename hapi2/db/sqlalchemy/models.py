@@ -176,13 +176,14 @@ class CRUD_Generic(models.CRUD):
             cls,stream,cls.__refs__,cls.__backrefs__,local=local,**argv)
         
     def dump(self):
-        dct = {key:getattr(self,key) for key in self.__keys__}
+        dct = {key:getattr(self,key) for key,_ in self.__keys__}
         dct['__class__'] = self.__class__.__name__
         dct['__identity__'] = self.__identity__
         return dct
         
     def load(self,dct):
-        keys_field_ = set(self.__keys__).intersection(dct.keys())
+        keys = [key for key,_ in self.__keys__]
+        keys_field_ = set(keys).intersection(dct.keys())
         for key in keys_field_: # date/time conversion
             
             # Take an actual type of the SQLAlchemy field
