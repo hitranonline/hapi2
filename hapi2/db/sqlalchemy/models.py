@@ -220,7 +220,7 @@ class CRUD_Dotpar(CRUD_Generic):
         tmpdir = SETTINGS['tmpdir'] 
         cls.__check_types__(header)                   
         stream = cls.__format_dispatcher_class__().getStreamer(basedir=tmpdir,header=header)
-        return __insert_transitions_core__(cls,stream,local=local,llst_name=llst_name)
+        return __insert_transitions_core__(cls,stream,local=local,llst_name=llst_name,**argv)
 
 class CrossSectionData(models.CrossSectionData):
 
