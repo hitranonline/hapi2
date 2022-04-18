@@ -119,11 +119,14 @@ def stream_hapi_transition_data_(tmpdir,filestem,par_line_flag=True):
                 DCT['isotopologue_alias'] = 'HITRAN-iso-%d'%PARAMS.pop('iso_id')
             elif 'global_iso_id' in PARAMS: 
                 DCT['isotopologue_alias'] = 'HITRAN-iso-%d'%PARAMS.pop('global_iso_id')
-            elif 'molec_id' in PARAMS and 'local_iso_id' in PARAMS:
+            elif 'molec_id' in DCT and 'local_iso_id' in DCT:
                 DCT['isotopologue_alias'] = 'HITRAN-iso-%d-%d'%\
-                    (PARAMS.pop('molec_id'),PARAMS.pop('local_iso_id'))
-            elif 'par_line' in PARAMS:
-                DCT['isotopologue_alias'] = get_iso_alias_(PARAMS['par_line'])
+                    (DCT['molec_id'],DCT['local_iso_id'])
+            #elif 'molec_id' in PARAMS and 'local_iso_id' in PARAMS:
+            #    DCT['isotopologue_alias'] = 'HITRAN-iso-%d-%d'%\
+            #        (PARAMS.pop('molec_id'),PARAMS.pop('local_iso_id'))
+            #elif 'par_line' in PARAMS:
+            #    DCT['isotopologue_alias'] = get_iso_alias_(PARAMS['par_line'])
             else:
                 DCT['isotopologue_alias'] = 'unknown_alias'
             
