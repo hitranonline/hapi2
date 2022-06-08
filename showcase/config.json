@@ -6,10 +6,10 @@
    "database_dir": "./",
    "echo": false,
    "debug": false,
-   "display_fetch_url": true,
+   "display_fetch_url": false,
    "proxy": null,
    "host": "https://hitran.org",
    "api_version": "v2",
    "tmpdir": "~tmp",
-   "api_key": "9445c269-77cd-4221-8c8d-0805ab75d8d9"
+   "api_key": ""
 }

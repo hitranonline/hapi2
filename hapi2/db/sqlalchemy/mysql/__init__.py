@@ -1,4 +1,6 @@
 from ..base import create_engine
+from ..legacy import storage2cache
+
 from .models import Base, make_session
 
 from hapi2.config import SETTINGS, VARSPACE

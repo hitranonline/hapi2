@@ -35,6 +35,8 @@ db_backend = VARSPACE['db_backend']
 
 session = VARSPACE['session']
 
+storage2cache = db_backend.storage2cache
+
 __db_backend_objects__ = [
     'query',
     'Molecule','MoleculeAlias','Transition','Source',

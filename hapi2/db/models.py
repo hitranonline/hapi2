@@ -89,12 +89,18 @@ class CRUD:
     """
     Implements helper funcs for (C)reate, (R)ead, (U)pdate, and (D)elete.
     """
-    
+   
     @classmethod
     def update(cls,dct):
         """
-        Update existing entry or create a new one in case 
-        if the latter is absent.
+        Update existing entries or create new in if not found.
+        """
+        raise NotImplementedError
+
+    @classmethod
+    def read(cls,filter=None,colnames=None):
+        """
+        Read columns of data from the database.
         """
         raise NotImplementedError
         
@@ -111,7 +117,7 @@ class CRUD:
         from a dictionary object without any nested stuff.
         """
         raise NotImplementedError
-                
+                        
     def __lt__(self,obj):
         raise NotImplementedError
         
@@ -166,7 +172,7 @@ class CrossSection:
     __keys__ = (
         ('id',                 {'type':int}),
         ('molecule_alias_id',  {'type':int}),
-        ('source_alias_id',    {'type':int}) ,
+        ('source_alias_id',    {'type':int}),
         ('numin',              {'type':float}),
         ('numax',              {'type':float}),
         ('npnts',              {'type':int}),

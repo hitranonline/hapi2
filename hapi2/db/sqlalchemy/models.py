@@ -174,6 +174,28 @@ class CRUD_Generic(models.CRUD):
         stream = cls.__format_dispatcher_class__().getStreamer(basedir=tmpdir,header=header)
         return __update_and_commit_core__(
             cls,stream,cls.__refs__,cls.__backrefs__,local=local,**argv)
+
+    @classmethod
+    def read(cls,filter=None,colnames=None):
+        session = VARSPACE['session']
+        model = getattr(VARSPACE['db_backend'].model,cls.__name__)
+                
+        q = session.query(model)
+        if filter is not None:
+            if type(filter) not in [list,tuple]:
+                filter = [filter]
+            q = q.filter(*[filter])
+        
+        if colnames is None:
+            colnames = [colname for colname,_ in model.__keys__]
+
+        colnames = set(colnames)-set(['extra'])
+            
+        data = q.with_entities(
+            *[getattr(Transition,colname) for colname in colnames]
+        ).all()
+    
+        return list(zip(*data))
         
     def dump(self):
         dct = {key:getattr(self,key) for key,_ in self.__keys__}
@@ -197,7 +219,7 @@ class CRUD_Generic(models.CRUD):
             else:            
                 # This is for the rest of the fields.
                 setattr(self,key,dct[key]) 
-                
+                                
     def __lt__(self,obj):
         return id(self) < id(obj)
         

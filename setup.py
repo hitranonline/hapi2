@@ -1,6 +1,5 @@
 from setuptools import find_packages, setup
 
-
 setup(
     name="hapi2",
     version="0.1",
