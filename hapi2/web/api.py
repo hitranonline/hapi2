@@ -200,18 +200,38 @@ def fetch_cross_section_headers(mols):
     xss = db_backend.models.CrossSection.update(HEADER,local=False)
 
     return xss.all()
-        
+    
+def attach_data_to_cross_sections(xss,datadir,local=True): # TEMPORARY VERSION
+    """
+    Attach the spectral data to cross section objects.
+    The data should be in the datadir folder. 
+    """
+    from hapi2.format.hitran.xsc import read_xsc
+    for xs in xss:
+        xsc,_ = read_xsc(datadir,xs.filename)
+        xs.set_data(nu=None,xsc=xsc)
+        #xs.save()
+            
 def fetch_cross_section_spectra(xss):
     """
     Fetch actual spectra using the pre-fetched headers.
     """
-    
     for xs in xss:
         fetch_file('data/xsec',xs.filename)
 
     attach_data_to_cross_sections(xss,SETTINGS['tmpdir'])
+    # TODO: add auto-commit and move attach_data back to the updaters.
 
-def fetch_isotopologues(mols): # from source also?
+def fetch_cross_sections(mols):
+    """
+    Fetch cross-section headers and data.
+    """    
+    xss = fetch_cross_section_headers(mols)
+    fetch_cross_section_spectra(xss)
+    # TODO: add auto-commit and move attach_data back to the updaters.
+    return xss
+    
+def fetch_isotopologues(mols):
     """
     Fetch isotopologues using molecule aliases as an input.
     """

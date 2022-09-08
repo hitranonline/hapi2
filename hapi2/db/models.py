@@ -1,5 +1,12 @@
+import numpy as np
+
 from hapi2.config import VARSPACE        
+
 from hapi2.utils.formula import molweight,atoms,natoms
+
+from hapi2.utils.xsc import compress_zlib, decompress_zlib, \
+    pack_double, unpack_double, pack_float, unpack_float
+
 from hapi import putRowObjectToString,HITRAN_DEFAULT_HEADER
 
 def get_alias_class(cls):
@@ -132,12 +139,16 @@ class CrossSectionData:
     """
     Stores the actual data for the header given in CrossSection.
     Wave numbers are packed in 8-byte double precision,
-    while absorption coefficient is packed in 4-byte single precision.
-    Single precision for absorption coefficient gives around 5e-6 percent
+    while absorption cross-section is packed in 4-byte single precision.
+    Single precision for absorption section gives around 5e-6 percent
     difference in accuracy, but reduces the database size twice.
     For wave numbers, single precision generally is not enough.
     """
-
+    
+    def __init__(self,nu=None,xsc=None):
+        if nu is not None: self.pack_nu(nu)
+        if xsc is not None: self.pack_xsc(xsc)
+    
     def unpack_nu(self):
         data_nu = self.__nu__
         if not data_nu and \
@@ -153,19 +164,19 @@ class CrossSectionData:
                 print('nu is empty: %s'%e)
                 return None
 
-    def unpack_coef(self):
-        data_coef = self.__coef__
-        if not data_coef:
-            print('coef is empty')
+    def unpack_xsc(self):
+        data_xsc = self.__xsc__
+        if not data_xsc:
+            print('xsc is empty')
             return None
         else:
-            return np.array(unpack_float(decompress_zlib(data_coef)))
+            return np.array(unpack_float(decompress_zlib(data_xsc)))
 
     def pack_nu(self,nu):
         self.__nu__ = compress_zlib(pack_double(nu))
 
-    def pack_coef(self,coef):
-        self.__coef__ = compress_zlib(pack_float(coef))
+    def pack_xsc(self,xsc):
+        self.__xsc__ = compress_zlib(pack_float(xsc))
 
 class CrossSection:
 
@@ -186,6 +197,7 @@ class CrossSection:
         ('apodization',        {'type':str}),
         ('json',               {'type':str}),
         ('filename',           {'type':str}),
+        ('format',             {'type':str}),
     )
 
     __identity__ = 'id'
@@ -215,57 +227,30 @@ class CrossSection:
     def source(self):
         return self.source_alias.source
 
-    def set_data(self,nu,coef):
-        if coef is None:
-            raise Exception('coef must be non-empty')
+    def set_data(self,nu=None,xsc=None):
+        if xsc is None:
+            raise Exception('xsc must be non-empty')
         if nu is None:
             if not (self.numin or self.numax):
                 raise Exception('numin and numax must be non-empty')
-            self.npnts = len(coef)
-        elif len(nu)!=len(coef):
-            raise Exception('nu and coef must have the same length')
-        self.data = CrossSectionData()
+            self.npnts = len(xsc)
+        elif len(nu)!=len(xsc):
+            raise Exception('nu and xsc must have the same length')
+        self.data = VARSPACE['db_backend'].models.CrossSectionData(nu,xsc)
         if nu is not None:
-            #self.data.nu = nu # attribute version works badly
-            self.data.pack_nu(nu)
+            #self.data.pack_nu(nu)
             self.numin = min(nu)
             self.numax = max(nu)
-        #self.data.coef = coef # attribute version works badly
-        self.data.pack_coef(coef)
-        #self.data.header = self # back link (not necessary when on-to-one relationship is properly set up)
+        #self.data.pack_xsc(xsc)
 
     def get_data(self):
         """
-        Either get the spectral data from the "data" relation,
-        or try to open the file in case if "data" is empty.
-        The file is defined by three parameters:
-           1) srcdir -> file directory
-           2) srcfile -> file name
-           3) srcformat -> file format ('twocol','xsc-hit')
+        Get the spectral data from the "data" relation.
         """
         # Search for the data blob first.
         if self.data:
-            #return self.data.get_nu,self.data.coef # attribute version works badly
-            return self.data.unpack_nu(),self.data.unpack_coef()
-        # If not found, try to import the file.
-        if self.srcformat is None:
-            raise Exception('srcformat should not be empty')
-        if self.srcformat=='2col':
-            path = os.path.join(self.srcdir,self.srcfile)
-            if not os.path.isfile(path): # search for gzipped file with single extension
-                path,ext = os.path.splitext(path); path += '.gz'
-            if not os.path.isfile(path): # search for gzipped file with double extension
-                path,_ = os.path.splitext(path); path += ext + '.gz'
-            #pairs = np.loadtxt(path) # UNICODE BUG
-            pairs = np.loadtxt(str(path))
-            nu,coef = zip(*pairs)
-            return np.array(nu),np.array(coef)
-        elif self.srcformat=='xsc':
-            coef,HEADER = read_xsc(self.srcdir,self.srcfile)
-            nu = np.linspace(HEADER['numin'],HEADER['numax'],HEADER['npnts'])
-            return nu,coef
-        else:
-            raise Exception('unknown value for srcformat: %s'%self.srcformat)
+            return self.data.unpack_nu(), self.data.unpack_xsc()
+        return None,None
 
     def range(self,numin=None,numax=None):
         """
@@ -309,9 +294,9 @@ class CrossSection:
         return interp(grid)
 
     def downsample(self,delta,numin=None,numax=None,type='triangular'):
-        nu,coef = self.range(numin,numax)
-        binned_nu,binned_coef = downsample(nu,coef,delta,type)
-        return binned_nu,binned_coef
+        nu,xsc = self.range(numin,numax)
+        binned_nu,binned_xsc = downsample(nu,xsc,delta,type)
+        return binned_nu,binned_xsc
 
     def compare(self,xs,numin,numax,grid=None):
         raise NotImplementedError

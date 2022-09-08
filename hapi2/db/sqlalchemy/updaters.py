@@ -4,18 +4,6 @@ from hapi2.config import SETTINGS, VARSPACE
 
 from .base import sql, query, commit, bindparam
 
-def attach_data_to_cross_sections(xss,datadir,local=True):
-    """
-    Attach the spectral data to cross section objects.
-    The data should be in the datadir folder. 
-    """
-    for xs in xss:
-        sigma,_ = read_xsc(datadir,xs.filename)
-        xs.set_data(None,sigma)
-        xs.save()
-        
-    VARSPACE['session'].commit()    
-
 def get_first_available_(cls,col,local=True):
     """
     Fetch next from maximum occupied value of the column from database for given class.
