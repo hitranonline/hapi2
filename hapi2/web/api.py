@@ -211,7 +211,8 @@ def attach_data_to_cross_sections(xss,datadir,local=True): # TEMPORARY VERSION
         xsc,_ = read_xsc(datadir,xs.filename)
         xs.set_data(nu=None,xsc=xsc)
         #xs.save()
-            
+    VARSPACE['session'].commit()
+                
 def fetch_cross_section_spectra(xss):
     """
     Fetch actual spectra using the pre-fetched headers.
@@ -220,7 +221,8 @@ def fetch_cross_section_spectra(xss):
         fetch_file('data/xsec',xs.filename)
 
     attach_data_to_cross_sections(xss,SETTINGS['tmpdir'])
-    # TODO: add auto-commit and move attach_data back to the updaters.
+    # TODO: attach_data back to the updaters.
+    VARSPACE['session'].commit()
 
 def fetch_cross_sections(mols):
     """
@@ -228,7 +230,7 @@ def fetch_cross_sections(mols):
     """    
     xss = fetch_cross_section_headers(mols)
     fetch_cross_section_spectra(xss)
-    # TODO: add auto-commit and move attach_data back to the updaters.
+    # TODO: move attach_data back to the updaters.
     return xss
     
 def fetch_isotopologues(mols):
