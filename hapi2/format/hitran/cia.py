@@ -1,3 +1,5 @@
+import os 
+
 # parser for the collision-induced absorption
 
 """
@@ -13,22 +15,28 @@ chemical_symbol     wnmin     wnmax     npnts  T      ciamax    res   comment   
 0:20                20:30     30:40     40:47  47:54  54:64     64:70 70:97                      97:100
 """
 
-class CIA():
+class CollisionComplex_:
+    def __init__(self,chemical_symbol):
+        self.chemical_symbol = chemical_symbol
+
+class CIA_():
     def __init__(self,header):
         self.data = {'nu':[],'xsc':[]}
         self.parse_header(header)
 
     def parse_header(self,header):
         # get cross-section in cm5/molecule2
-        self.chemical_symbol = header[0:20].strip()
-        self.wnmin = float(header[20:30])
-        self.wnmax = float(header[30:40])
+        #self.chemical_symbol = header[0:20].strip()
+        self.collision_complex = CollisionComplex_(header[0:20].strip())
+        self.numin = float(header[20:30])
+        self.numax = float(header[30:40])
         self.npnts = int(header[40:47])
         self.temperature = float(header[47:54])
-        self.ciamax = float(header[54:64])
-        self.res = float(header[64:70])
+        self.cia_max = float(header[54:64])
+        self.resolution = float(header[64:70])
         self.comment = header[70:97]
-        self.ref = int(header[97:100])
+        self.local_ref_id = int(header[97:100])
+        self.filename = None
         
     def append_data(self,nu,xsc):
         # append single pair (nu,xsc) to cross-sections
@@ -47,22 +55,26 @@ class CIA():
         # get absorption coefficient in cm-1
         pass
 
-def parse(file):
+def parse(filepath,silent=False):
     """
     Parse CIA cross-section from the file.
     Return the Python dictionary containing all parameters.
     Assumes there are multiple cross-section T-sets inside the file.
     """
-    f = open(file)
+    f = open(filepath)
     head_flag = True
     xss = []
     for line in f:
+        if not line.strip(): continue
         if head_flag: # current line is a header
-            xsc = CIA(line); xss.append(xsc)
-            #print('======')            
-            print(line)
+            if not silent: print(line.rstrip())
+            xsc = CIA_(line)
+            filename = os.path.basename(filepath)
+            xsc.filename = filename
+            xss.append(xsc)
+            #if not silent: print('======')            
             #import json
-            #print(json.dumps(xsc.__dict__,indent=2))
+            #if not silent: print(json.dumps(xsc.__dict__,indent=2))
             head_flag = False  
             line_counter = 1            
         else: # current line can be a (nu,xsc) pair or a header

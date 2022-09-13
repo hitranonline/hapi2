@@ -1,3 +1,4 @@
+import re
 import numpy as np
 
 from hapi2.config import VARSPACE        
@@ -133,7 +134,7 @@ class CRUD:
             
     @classmethod
     def all(cls):
-        raise NotImplementedError        
+        raise NotImplementedError
 
 class CrossSectionData:
     """
@@ -170,13 +171,13 @@ class CrossSectionData:
             print('xsc is empty')
             return None
         else:
-            return np.array(unpack_float(decompress_zlib(data_xsc)))
+            return np.array(unpack_double(decompress_zlib(data_xsc)))
 
     def pack_nu(self,nu):
         self.__nu__ = compress_zlib(pack_double(nu))
 
     def pack_xsc(self,xsc):
-        self.__xsc__ = compress_zlib(pack_float(xsc))
+        self.__xsc__ = compress_zlib(pack_double(xsc))
 
 class CrossSection:
 
@@ -198,6 +199,7 @@ class CrossSection:
         ('json',               {'type':str}),
         ('filename',           {'type':str}),
         ('format',             {'type':str}),
+        ('status',             {'type':str}),
     )
 
     __identity__ = 'id'
@@ -307,6 +309,81 @@ class CrossSection:
     def __repr__(self):
         return self.__str__()
 
+class CIACrossSection(CrossSection):
+
+    __keys__ = (
+        ('id',                         {'type':int}),
+        ('collision_complex_alias_id', {'type':int}),
+        ('source_alias_id',            {'type':int}),
+        ('local_ref_id',               {'type':int}),
+        ('numin',                      {'type':float}),
+        ('numax',                      {'type':float}),
+        ('npnts',                      {'type':int}),
+        ('cia_max',                    {'type':float}),
+        ('temperature',                {'type':float}),
+        ('resolution',                 {'type':float}),
+        ('resolution_units',           {'type':str}),
+        ('comment',                    {'type':str}),
+        ('description',                {'type':str}),
+        ('apodization',                {'type':str}),
+        ('json',                       {'type':str}),
+        ('filename',                   {'type':str}),
+        ('format',                     {'type':str}),
+        ('status',                     {'type':str}),
+    )
+
+    __identity__ = 'id'
+    
+    __refs__ = {
+        'collision_complex_alias': {
+            'class':'CollisionComplexAlias',
+            'table':'collision_complex_alias',
+            'join':[('collision_complex_alias_id','id'),],
+            'backpop':'cia_cross_sections',
+        },
+        'source_alias': {
+            'class':'SourceAlias',
+            'table':'source_alias',
+            'join':[('source_alias_id','id'),],
+            'backpop':'cia_cross_sections',
+        },
+    }
+
+    __backrefs__ = {}
+
+    @property
+    def molecule(self):
+        raise Exception('obsolete method for CIACrossSection') 
+
+    @property
+    def collision_complex(self):
+        return self.collision_complex_alias.collision_complex 
+
+    @property
+    def source(self):
+        return self.source_alias.source
+        
+    def set_data(self,nu=None,xsc=None):
+        if xsc is None:
+            raise Exception('xsc must be non-empty')
+        if nu is None:
+            if not (self.numin or self.numax):
+                raise Exception('numin and numax must be non-empty')
+            self.npnts = len(xsc)
+        elif len(nu)!=len(xsc):
+            raise Exception('nu and xsc must have the same length')
+        self.data = VARSPACE['db_backend'].models.CIACrossSectionData(nu,xsc)
+        if nu is not None:
+            #self.data.pack_nu(nu)
+            self.numin = min(nu)
+            self.numax = max(nu)
+        #self.data.pack_xsc(xsc)
+
+    def __str__(self):
+        return '%s : %s'%(self.source_alias,self.collision_complex_alias)
+    
+    def __repr__(self):
+        return self.__str__()
 
 @searchable
 class SourceAlias:
@@ -379,6 +456,13 @@ class Source:
         xss = set()
         for source_alias in self.aliases:
             xss.update(source_alias.cross_sections)
+        return list(xss)
+
+    @property
+    def cia_cross_sections(self):
+        xss = set()
+        for source_alias in self.aliases:
+            xss.update(source_alias.cia_cross_sections)
         return list(xss)
 
     @property
@@ -816,3 +900,103 @@ class Molecule:
     @property
     def weight(self):
         return molweight(self.stoichiometric_formula)
+
+@searchable              
+class CollisionComplexAlias:
+
+    __keys__ = (
+        ('id',                    {'type':int}),
+        ('collision_complex_id',  {'type':int}),
+        ('alias',                 {'type':str}),
+        ('type',                  {'type':str}),
+    )
+
+    __identity__ = 'alias'
+    
+    __refs__ = {}
+
+    __backrefs__ = {}
+
+    @property
+    def name(self):
+        return self.alias
+
+    @property
+    def collision_complex(self):
+        raise NotImplementedError
+
+@searchable_by_alias        
+class CollisionComplex:
+
+    __keys__ =  (
+        ('id',                      {'type':int}),
+        ('chemical_symbol',         {'type':str}),
+    )
+
+    __identity__ = 'chemical_symbol'
+    
+    __refs__ = {}
+
+    __backrefs__ = {
+        'aliases': {
+            'class':'CollisionComplexAlias',
+            'table':'collision_complex_alias',
+            'join':[('id','collision_complex_id'),],
+            'backpop':'collision_complex',
+        },
+    }
+
+    @property
+    def name(self):
+        return self.chemical_symbol
+
+    @property
+    def aliases(self):
+        raise NotImplementedError
+
+    @property
+    def first_alias(self):
+        raise NotImplementedError
+
+    @property
+    def cia_cross_sections(self):
+        xss = set()
+        for ccomp_alias in self.aliases:
+            xss.update(ccomp_alias.cia_cross_sections)
+        return list(xss)
+
+    @property
+    def sources(self):
+        srcs = []
+        for xs in self.cia_cross_sections:
+            srcs.append(xs.source)
+        return list(set(srcs))
+
+    @property
+    def groups(self):
+        grps = []
+        for src in self.sources:
+            grps.append(src.group)
+        return list(set(grps))
+
+    #@property
+    #def acronym(self):
+    #    for al in self.aliases:
+    #        if al.type=='acronym': return al
+
+    #@property
+    #def cas(self):
+    #    for al in self.aliases:
+    #        if al.type=='cas': return al
+
+    #@property
+    #def atoms(self):
+    #    return atoms(self.stoichiometric_formula)
+
+    #@property
+    #def natoms(self):
+    #    return natoms(self.stoichiometric_formula)
+
+    #@property
+    #def weight(self):
+    #    return molweight(self.stoichiometric_formula)

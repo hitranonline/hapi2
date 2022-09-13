@@ -165,6 +165,16 @@ def fetch_molecules():
     mols = db_backend.models.Molecule.update(HEADER,local=False)
         
     return mols.all()
+
+def fetch_collision_complexes():
+    """
+    Fetch molecule list (simple).
+    """
+    HEADER = fetch_header('collision-complexes')
+    
+    ccomps = db_backend.models.CollisionComplex.update(HEADER,local=False)
+        
+    return ccomps.all()
     
 def fetch_sources(ids=None):
     """
@@ -232,7 +242,91 @@ def fetch_cross_sections(mols):
     fetch_cross_section_spectra(xss)
     # TODO: move attach_data back to the updaters.
     return xss
-    
+
+def fetch_cia_cross_section_headers(ccomps):
+    """
+    Fetch cross-section headers using collision complexes as in input.
+    """    
+    if type(ccomps) not in [list,tuple]:
+        ccomps = [ccomps]
+        
+    # get the ids of the molecules
+    ids = [ccomp.id for ccomp in ccomps]
+    # form and query
+    query = Q(collision_complex_id__in=ids)
+            
+    # Step 1: request cross-sections, but don't save them
+    HEADER = fetch_header('cia-cross-sections',query)
+            
+    # Step 3: Finally, save the cross-sections
+    xss = db_backend.models.CIACrossSection.update(HEADER,local=False)
+
+    return xss.all()
+
+def cia_header_signature(xs):
+    """ Calculate signature cor CIA object for search """
+    fields = ['numin','numax','npnts','temperature','cia_max',
+        'resolution','comment','local_ref_id',]
+    signature = tuple([xs.collision_complex.chemical_symbol]+\
+        [getattr(xs,field)for field in fields])
+    return signature
+
+def attach_data_to_cia_cross_sections(xss,datadir,local=True): # TEMPORARY VERSION
+    """
+    Attach the spectral data to cross section objects.
+    The data should be in the datadir folder. 
+    """
+    from hapi2.format.hitran.cia import parse
+    XSC_BUF = {}
+    for xs in xss:
+        filename = xs.filename
+        # prepare lookup buffer
+        if filename not in XSC_BUF:
+            print('parsing %s'%filename)
+            XSC_BUF[filename] = {}
+            xss_ = parse(os.path.join(datadir,filename),silent=False)
+            for xs_ in xss_:
+                head_sign = cia_header_signature(xs_)
+                if head_sign in XSC_BUF[filename]:
+                    raise Exception('signature %s is already in %s'%\
+                        (head_sign,filename))
+                XSC_BUF[filename][head_sign] = xs_
+        # find needed temperature
+        data = XSC_BUF[filename][cia_header_signature(xs)].data
+        xs.set_data(nu=data['nu'],xsc=data['xsc'])
+        #xs.save()
+    VARSPACE['session'].commit()
+                
+def fetch_cia_cross_section_spectra(xss):
+    """
+    Fetch actual spectra using the pre-fetched headers.
+    """
+    FETCHED = set()
+    for xs in xss:
+        if xs.status=='main':
+            global_path = 'data/CIA'
+        elif xs.status=='alternate':
+            global_path = 'data/CIA/supplementary'
+        else:
+            raise Exception('unknown cross-section status: "%s"'%xs.status)
+        filename = xs.filename
+        if filename not in FETCHED:
+            fetch_file(global_path,filename)
+            FETCHED.add(filename)
+
+    attach_data_to_cia_cross_sections(xss,SETTINGS['tmpdir'])
+    # TODO: attach_data back to the updaters.
+    VARSPACE['session'].commit()
+
+def fetch_cia_cross_sections(ccomps):
+    """
+    Fetch CIA cross-section headers and data.
+    """    
+    xss = fetch_cia_cross_section_headers(ccomps)
+    fetch_cia_cross_section_spectra(xss)
+    # TODO: move attach_data back to the updaters.
+    return xss
+
 def fetch_isotopologues(mols):
     """
     Fetch isotopologues using molecule aliases as an input.
@@ -272,9 +366,6 @@ def fetch_molecule_categories(pattern=None):
     """
     pass
     
-def fetch_cia(mols):
-    pass
-
 def fetch_transitions(isos,numin,numax,llst_name):
     """
     Fetch transitions using isotopologue objects as an input.

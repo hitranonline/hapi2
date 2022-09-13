@@ -274,6 +274,36 @@ class CrossSection(models.CrossSection):
         return relationship('CrossSectionData',uselist=False,back_populates='header',
             primaryjoin = 'cross_section.c.id==foreign(cross_section_data.c.header_id)')
 
+class CIACrossSectionData(models.CrossSectionData):
+
+    @declared_attr
+    def __tablename__(src):
+        return 'cia_cross_section_data'
+
+    @declared_attr
+    def header(cls):
+        return relationship('CIACrossSection',back_populates='data',
+            primaryjoin='cia_cross_section.c.id==foreign(cia_cross_section_data.c.header_id)')
+
+class CIACrossSection(models.CIACrossSection):
+
+    @declared_attr
+    def __tablename__(cls):
+        return 'cia_cross_section'
+
+    @declared_attr
+    def collision_complex_alias(cls):
+        return assemble_relation(cls,'collision_complex_alias',refs_flag=True)
+
+    @declared_attr
+    def source_alias(cls):
+        return assemble_relation(cls,'source_alias',refs_flag=True)
+
+    @declared_attr
+    def data(cls):
+        return relationship('CIACrossSectionData',uselist=False,back_populates='header',
+            primaryjoin = 'cia_cross_section.c.id==foreign(cia_cross_section_data.c.header_id)')
+
 @searchable__alias
 class SourceAlias(models.SourceAlias):
 
@@ -290,6 +320,11 @@ class SourceAlias(models.SourceAlias):
     def cross_sections(cls):
         return relationship('CrossSection',back_populates='source_alias',
             primaryjoin='source_alias.c.id==foreign(cross_section.c.source_alias_id)')
+
+    @declared_attr
+    def cia_cross_sections(cls):
+        return relationship('CIACrossSection',back_populates='source_alias',
+            primaryjoin='source_alias.c.id==foreign(cia_cross_section.c.source_alias_id)')
 
 @searchable_by_alias
 class Source(models.Source):
@@ -479,3 +514,31 @@ class Molecule(models.Molecule):
         transs = query(models.Transition).filter(
             models.Transition.isotopologue_alias_id.in_(isoal_ids))
         return transs
+
+@searchable__alias
+class CollisionComplexAlias(models.CollisionComplexAlias):
+
+    @declared_attr
+    def __tablename__(cls):
+        return 'collision_complex_alias'
+
+    @declared_attr
+    def collision_complex(cls):
+        return relationship('CollisionComplex',back_populates='aliases',
+            primaryjoin='foreign(collision_complex_alias.c.collision_complex_id)==collision_complex.c.id')
+            
+    @declared_attr
+    def cia_cross_sections(cls):
+        return relationship('CIACrossSection',back_populates='collision_complex_alias',
+            primaryjoin='collision_complex_alias.c.id==foreign(cia_cross_section.c.collision_complex_alias_id)')
+
+@searchable_by_alias
+class CollisionComplex(models.CollisionComplex):
+
+    @declared_attr
+    def __tablename__(cls):
+        return 'collision_complex'
+        
+    @declared_attr
+    def aliases(cls):
+        return assemble_relation(cls,'aliases',refs_flag=False)

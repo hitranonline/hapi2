@@ -59,12 +59,53 @@ class CrossSection(models.CrossSection, models.CRUD_Generic, Base):
     apodization = Column('apodization',VARCHARTYPE(255))
     json = Column('json',VARCHARTYPE(255)) # auxiliary field containing non-schema information
     format = Column('format',VARCHARTYPE(255))
+    status = Column('status',VARCHARTYPE(255))
 
     # additional HITRANonline-compliant parameters parameters
     filename = Column('filename',VARCHARTYPE(250),unique=IS_UNIQUE) # HITRANonline filename
 
     __table_args__ = (
         #Index('cross_section__molecule_alias_id', molecule_alias_id),
+        {'mysql_engine':table_engine},
+    )
+
+class CIACrossSectionData(models.CIACrossSectionData, models.CRUD_Generic, Base):
+
+    id = Column(INTTYPE,primary_key=True)
+    header_id = Column('header_id',INTTYPE,nullable=IS_NULLABLE) # ,ForeignKey('cross_section.id')
+    __nu__ = Column('__nu__',BLOBTYPE)
+    __xsc__ = Column('__xsc__',BLOBTYPE)
+
+    __table_args__ = (
+        {'mysql_engine':table_engine},
+    )
+
+class CIACrossSection(models.CIACrossSection, models.CRUD_Generic, Base):
+
+    id = Column(INTTYPE,primary_key=True,autoincrement=False)
+    collision_complex_alias_id = Column('collision_complex_alias_id',INTTYPE,nullable=IS_NULLABLE) # ,ForeignKey('collision_complex_alias.id')
+    source_alias_id = Column('source_alias_id',INTTYPE,nullable=IS_NULLABLE) # ,ForeignKey('source_alias.id')
+    local_ref_id = Column('local_ref_id',INTTYPE)
+    numin = Column('numin',DOUBLETYPE)
+    numax = Column('numax',DOUBLETYPE)
+    npnts = Column('npnts',INTTYPE)
+    cia_max = Column('cia_max',DOUBLETYPE)
+    temperature = Column('temperature',DOUBLETYPE)
+    resolution = Column('resolution',DOUBLETYPE)
+    resolution_units = Column('resolution_units',VARCHARTYPE(5))
+    comment = Column('comment',VARCHARTYPE(255))
+    description = Column('description',VARCHARTYPE(255))
+    apodization = Column('apodization',VARCHARTYPE(255))
+    json = Column('json',VARCHARTYPE(255)) # auxiliary field containing non-schema information
+    format = Column('format',VARCHARTYPE(255))
+    status = Column('status',VARCHARTYPE(255))
+
+    # additional HITRANonline-compliant parameters
+    #filename = Column('filename',VARCHARTYPE(255),unique=IS_UNIQUE) # HITRANonline filename
+    filename = Column('filename',VARCHARTYPE(255),unique=False) # HITRANonline filename
+
+    __table_args__ = (
+        #Index('cross_section__collision_complex_id', collision_complex_id),
         {'mysql_engine':table_engine},
     )
 
@@ -230,6 +271,26 @@ class Molecule(models.Molecule, models.CRUD_Generic, Base):
     inchi = Column('inchi',VARCHARTYPE(255))
     inchikey = Column('inchikey',VARCHARTYPE(250),unique=IS_UNIQUE)
     csid = Column('csid',INTTYPE)
+
+    __table_args__ = (
+        {'mysql_engine':table_engine},
+    )
+
+class CollisionComplexAlias(models.CollisionComplexAlias, models.CRUD_Generic,Base):
+    
+    id = Column(INTTYPE, primary_key=True,autoincrement=False)
+    collision_complex_id = Column('collision_complex_id',INTTYPE,nullable=True) # , ForeignKey('collision_complex.id')
+    alias = Column('alias',VARCHARTYPE(255),unique=IS_UNIQUE,nullable=IS_NULLABLE)
+    type = Column('type',VARCHARTYPE(255))
+
+    __table_args__ = (
+        {'mysql_engine':table_engine},
+    )
+
+class CollisionComplex(models.CollisionComplex, models.CRUD_Generic, Base):
+    
+    id = Column(INTTYPE,primary_key=True,autoincrement=False)
+    chemical_symbol = Column('chemical_symbol',VARCHARTYPE(255))
 
     __table_args__ = (
         {'mysql_engine':table_engine},
