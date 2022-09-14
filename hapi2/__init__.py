@@ -43,7 +43,7 @@ __db_backend_objects__ = [
     'SourceAlias','CrossSection','Transition','Isotopologue',
     'IsotopologueAlias','ParameterMeta','Linelist',
     'MoleculeCategory','CIACrossSection','CollisionComplex',
-    'CollisionComplexAlias',
+    'CollisionComplexAlias','PartitionFunction'
 ]
 for _ in __db_backend_objects__:
     setattr(sys.modules[__name__], _, 
@@ -56,7 +56,7 @@ __web_api_objects__ = [
     'fetch_cross_section_headers','fetch_cross_sections','fetch_sources',
     'fetch_molecules','fetch_collision_complexes',
     'fetch_cia_cross_section_headers','fetch_cia_cross_section_spectra',
-    'fetch_cia_cross_sections','fetch_info',
+    'fetch_cia_cross_sections','fetch_partition_functions','fetch_info',
 ]
 for _ in __web_api_objects__:
     setattr(sys.modules[__name__], _, 

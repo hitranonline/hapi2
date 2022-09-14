@@ -8,7 +8,7 @@ from hapi2.utils.formula import molweight,atoms,natoms
 from hapi2.utils.xsc import compress_zlib, decompress_zlib, \
     pack_double, unpack_double, pack_float, unpack_float
 
-from hapi import putRowObjectToString,HITRAN_DEFAULT_HEADER
+from hapi import putRowObjectToString,HITRAN_DEFAULT_HEADER, AtoB
 
 def get_alias_class(cls):
     """
@@ -135,6 +135,80 @@ class CRUD:
     @classmethod
     def all(cls):
         raise NotImplementedError
+
+class PartitionFunction:
+    """ Follows the definition of Partition Function given in 
+        Gamache RR, et al. DOI:10.1016/j.jqsrt.2017.03.045 """
+
+    __keys__ = (
+        ('id',                     {'type':int}),
+        ('isotopologue_alias_id',  {'type':int}),
+        ('source_alias_id',        {'type':int}),
+        #('Q296',                   {'type':float}),
+        ('tmin',                   {'type':float}),
+        ('tmax',                   {'type':float}),
+        ('__TT__',                 {'type':str}),
+        ('__QQ__',                 {'type':str}),
+        ('json',                   {'type':str}),
+        ('filename',               {'type':str}),
+        ('comment',                {'type':str}),
+        ('status',                 {'type':str}),
+    )
+
+    __identity__ = 'id'
+    
+    __refs__ = {
+        'isotopologue_alias': {
+            'class':'IsotopologueAlias',
+            'table':'isotopologue_alias',
+            'join':[('isotopologue_alias_id','id'),],
+            'backpop':'partition_functions',
+        },
+        'source_alias': {
+            'class':'SourceAlias',
+            'table':'source_alias',
+            'join':[('source_alias_id','id'),],
+            'backpop':'partition_functions',
+        },
+    }
+
+    __backrefs__ = {}
+
+    @property
+    def isotopologue(self):
+        return self.isotopologue_alias.isotopologue
+
+    @property
+    def source(self):
+        return self.source_alias.source
+
+    def Q(self,T):
+        if 'data' not in self.__dict__:
+            self.data = self.get_data()
+        TT = self.data[0]
+        QQ = self.data[1]
+        Tmin = self.tmin
+        Tmax = self.tmax
+        if T<Tmin or T>Tmax:
+            raise Exception('out of temperature range: %s'%str((Tmin,Tmax)))
+        Qt = AtoB(T,TT,QQ,len(TT))
+        return Qt
+        
+    def set_data(self,TT,QQ):
+        self.__TT__ = compress_zlib(pack_double(TT))
+        self.__QQ__ = compress_zlib(pack_double(QQ))
+
+    def get_data(self):
+        TT = None; QQ = None
+        if self.__TT__: TT = np.array(unpack_double(decompress_zlib(self.__TT__)))
+        if self.__QQ__: QQ = np.array(unpack_double(decompress_zlib(self.__QQ__)))
+        return TT,QQ
+
+    def __str__(self):
+        return '%s : %s'%(self.source_alias,self.isotopologue_alias)
+    
+    def __repr__(self):
+        return self.__str__()
 
 class CrossSectionData:
     """

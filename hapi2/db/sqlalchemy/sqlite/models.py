@@ -27,6 +27,28 @@ IS_NULLABLE = True
 def search_string(query,cls,field,pattern):
     return query.filter(getattr(cls,field).ilike(pattern+'\0%'))
 
+class PartitionFunction(models.PartitionFunction, models.CRUD_Generic, Base):
+
+    id = Column(INTTYPE,primary_key=True)
+    isotopologue_alias_id = Column('isotopologue_alias_id',INTTYPE,nullable=IS_NULLABLE) # ,ForeignKey('molecule_alias.id')
+    source_alias_id = Column('source_alias_id',INTTYPE,nullable=IS_NULLABLE) # ,ForeignKey('source_alias.id')
+    #Q296 = Column('Q296',DOUBLETYPE)
+    tmin = Column('tmin',DOUBLETYPE)
+    tmax = Column('tmax',DOUBLETYPE)
+    comment = Column('format',VARCHARTYPE(255))
+    status = Column('status',VARCHARTYPE(255))
+    json = Column('json',VARCHARTYPE(255)) # auxiliary field containing non-schema information
+    
+    __TT__ = Column('__TT__',BLOBTYPE)
+    __QQ__ = Column('__QQ__',BLOBTYPE)
+
+    # additional HITRANonline-compliant parameters
+    filename = Column('filename',VARCHARTYPE(255),nullable=IS_NULLABLE) # HITRANonline filename
+
+    __table_args__ = (
+        #Index('cross_section__molecule_alias_id', molecule_alias_id),
+    )
+
 class CrossSectionData(models.CrossSectionData, models.CRUD_Generic, Base):
 
     id = Column(INTTYPE,primary_key=True)

@@ -244,6 +244,20 @@ class CRUD_Dotpar(CRUD_Generic):
         stream = cls.__format_dispatcher_class__().getStreamer(basedir=tmpdir,header=header)
         return __insert_transitions_core__(cls,stream,local=local,llst_name=llst_name,**argv)
 
+class PartitionFunction(models.PartitionFunction):
+
+    @declared_attr
+    def __tablename__(cls):
+        return 'partition_function'
+
+    @declared_attr
+    def isotopologue_alias(cls):
+        return assemble_relation(cls,'isotopologue_alias',refs_flag=True)
+
+    @declared_attr
+    def source_alias(cls):
+        return assemble_relation(cls,'source_alias',refs_flag=True)
+
 class CrossSectionData(models.CrossSectionData):
 
     @declared_attr
@@ -326,6 +340,11 @@ class SourceAlias(models.SourceAlias):
         return relationship('CIACrossSection',back_populates='source_alias',
             primaryjoin='source_alias.c.id==foreign(cia_cross_section.c.source_alias_id)')
 
+    @declared_attr
+    def partition_functions(cls):
+        return relationship('PartitionFunction',back_populates='source_alias',
+            primaryjoin='source_alias.c.id==foreign(partition_function.c.source_alias_id)')
+
 @searchable_by_alias
 class Source(models.Source):
     
@@ -406,6 +425,11 @@ class IsotopologueAlias(models.IsotopologueAlias):
     def transitions(cls):
         return relationship('Transition',back_populates='isotopologue_alias',lazy='dynamic',
             primaryjoin='isotopologue_alias.c.id==foreign(transition.c.isotopologue_alias_id)')
+
+    @declared_attr
+    def partition_functions(cls):
+        return relationship('PartitionFunction',back_populates='isotopologue_alias',lazy='dynamic',
+            primaryjoin='isotopologue_alias.c.id==foreign(partition_function.c.isotopologue_alias_id)')
 
 @searchable_by_alias
 class Isotopologue(models.Isotopologue):

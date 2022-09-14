@@ -9,6 +9,7 @@ db_backend = VARSPACE['db_backend']
 #from ..formats import read_xsc
 #from ..formats import HITRAN_DotparParser
 
+import hapi
 from hapi import prepareHeader
 
 import uuid as uuidmod
@@ -395,7 +396,7 @@ def fetch_transitions(isos,numin,numax,llst_name):
     filename = HEADER_TRANSITIONS['content']['data']
     prefix = VARSPACE['server_info']['content']['data']['results_dir']
 
-    fetch_file(prefix,filename,llst_name+'.data') 
+    fetch_file(prefix,filename,llst_name+'.data')
     
     # prepare and save HAPI header for transitions.
     HAPI1_HEADER = prepareHeader(parlist=parlist) # add parameter list in later release
@@ -406,3 +407,145 @@ def fetch_transitions(isos,numin,numax,llst_name):
     transs = db_backend.models.Transition.update(HEADER_TRANSITIONS,local=False,llst_name=llst_name)
         
     return transs
+
+TIPS_LOOKUP_TABLE = {
+    '2011': {
+        'ISOT_HASH':lambda M,I: hapi.Tdat, 
+        'ISOQ_HASH':lambda M,I: hapi.TIPS_ISO_HASH[(M,I)], 
+        'SOURCE_DOI':'10.1016/j.icarus.2011.06.004'
+    },
+    '2017': {
+        'ISOT_HASH':lambda M,I: hapi.TIPS_2017_ISOT_HASH[(M,I)], 
+        'ISOQ_HASH':lambda M,I: hapi.TIPS_2017_ISOQ_HASH[(M,I)], 
+        'SOURCE_DOI':'10.1016/j.jqsrt.2017.03.045'
+    },
+    '2021': {
+        'ISOT_HASH':lambda M,I: hapi.TIPS_2021_ISOT_HASH[(M,I)], 
+        'ISOQ_HASH':lambda M,I: hapi.TIPS_2021_ISOQ_HASH[(M,I)],
+        'SOURCE_DOI':'10.1016/j.jqsrt.2021.107713'
+    },
+}
+
+def get_MI(iso):
+    """ Get local numbers of molecule and isotopologue.
+        !!! ATTENTION: If isoid=0 encountered, it will 
+        be automatically translated to iso=10 """
+    M = iso.molecule.id
+    I = iso.isoid
+    if I==0: I=10; # !!!
+    return M,I
+
+def attach_data_to_pfuncs_from_hapi(pfuncs):
+    """ Attach data from HAPI v1 to partition function objects"""
+    
+    for pfunc in pfuncs:
+        PFUNC_JSON = json.loads(pfunc.json)
+        TIPS_VERSION = PFUNC_JSON['TIPS_VERSION']
+        TIPS_LOOKUP = TIPS_LOOKUP_TABLE[TIPS_VERSION]
+        M,I = get_MI(pfunc.isotopologue)
+        TT = TIPS_LOOKUP['ISOT_HASH'](M,I)
+        QQ = TIPS_LOOKUP['ISOQ_HASH'](M,I)
+        pfunc.set_data(TT,QQ)
+
+def get_local_pfunc_id(tips_version,iso):
+    ID_LOOKUP = {
+        '2011':1000000,
+        '2017':2000000,
+        '2021':3000000,
+    }
+    Mid = 100*iso.molecule.id
+    Iid = iso.isoid
+    return ID_LOOKUP[tips_version]+Mid+Iid
+
+def get_local_pfunc_q296(TT,QQ):
+    import numpy as np
+    #    i = TT.index(296)
+    #    return QQ[i]
+    #except ValueError:
+    #    return None
+    inds = np.where(TT==296.0)[0]
+    if len(inds)==0: return None
+    return QQ[inds[0]]
+
+def get_query_header_from_hapi(isos):
+    """ Get dummy query header for partition functions in HAPI v1 """
+    
+    from datetime import datetime
+    
+    HEADER = {
+        'status':'OK',
+        'message':'',
+        'content':{
+            'class':'PartitionFunction',
+            'format':'json',
+            'data':[],
+        },
+        'timestamp':str(datetime.now()),
+        'query':'',
+        'source':'HAPI',
+    }
+    
+    ITEM_TEMPLATE = {
+        'id': None,                  
+        'isotopologue_alias': None,
+        'source_alias': None,
+        #'Q296': None,
+        'tmin': None,
+        'tmax': None,
+        'json': None,
+        'filename': '',
+        'comment': 'HAPI LOCAL',
+        'status': 'main',
+    }
+    
+    for iso in isos:
+        for tips_version in TIPS_LOOKUP_TABLE:
+            TIPS_LOOKUP = TIPS_LOOKUP_TABLE[tips_version]
+            M,I = get_MI(iso)
+            try:
+                TT = TIPS_LOOKUP['ISOT_HASH'](M,I)
+                QQ = TIPS_LOOKUP['ISOQ_HASH'](M,I)
+            except KeyError:
+                continue
+            ITEM = ITEM_TEMPLATE.copy()
+            ITEM['id'] = get_local_pfunc_id(tips_version,iso)
+            ITEM['isotopologue_alias'] = 'HITRAN-iso-%d'%iso.id
+            ITEM['source_alias'] = TIPS_LOOKUP['SOURCE_DOI']
+            #ITEM['Q296'] = get_local_pfunc_q296(TT,QQ)
+            ITEM['tmin'] = min(TT)
+            ITEM['tmax'] = max(TT)
+            ITEM['json'] = json.dumps({'TIPS_VERSION':tips_version})
+            HEADER['content']['data'].append(ITEM)
+       
+    #with open('tips_header.json','w') as f:
+    #    f.write(json.dumps(HEADER))
+    #raise Exception('debug')
+       
+    return HEADER
+
+def fetch_partition_functions_tmp(isos):
+    """
+    Emulate fetching partition functions using local data from HAPI v1.
+    """
+
+    if type(isos) not in [list,tuple]:
+        isos = [isos]
+        
+    # get dummy query header from HAPI v1
+    HEADER = get_query_header_from_hapi(isos)
+            
+    # save the partition functions
+    pfuncs = db_backend.models.PartitionFunction.update(HEADER,local=False)
+    pfuncs = pfuncs.all()
+
+    # attach data to partition functions
+    attach_data_to_pfuncs_from_hapi(pfuncs)
+    VARSPACE['session'].commit()
+    
+    return pfuncs
+
+def fetch_partition_functions(isos):
+    """
+    Fetch partition functions using isotopologue objects as an input.
+    """
+    return fetch_partition_functions_tmp(isos)
