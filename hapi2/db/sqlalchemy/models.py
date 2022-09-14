@@ -178,25 +178,20 @@ class CRUD_Generic(models.CRUD):
     @classmethod
     def read(cls,filter=None,colnames=None):
         session = VARSPACE['session']
-        model = getattr(VARSPACE['db_backend'].model,cls.__name__)
+        model = getattr(VARSPACE['db_backend'].models,cls.__name__)
                 
         q = session.query(model)
         if filter is not None:
             if type(filter) not in [list,tuple]:
                 filter = [filter]
             q = q.filter(*[filter])
-        
-        if colnames is None:
-            colnames = [colname for colname,_ in model.__keys__]
-
-        colnames = set(colnames)-set(['extra'])
-            
+                    
         data = q.with_entities(
-            *[getattr(Transition,colname) for colname in colnames]
+            *[getattr(cls,colname) for colname in colnames]
         ).all()
     
         return list(zip(*data))
-        
+                
     def dump(self):
         dct = {key:getattr(self,key) for key,_ in self.__keys__}
         dct['__class__'] = self.__class__.__name__
@@ -219,12 +214,13 @@ class CRUD_Generic(models.CRUD):
             else:            
                 # This is for the rest of the fields.
                 setattr(self,key,dct[key]) 
-                                
+                                      
     def __lt__(self,obj):
         return id(self) < id(obj)
         
     def save(self):
         VARSPACE['session'].add(self)
+        VARSPACE['session'].commit() # if no commit is done, fails on saving aliases
             
     @classmethod
     def all(cls):

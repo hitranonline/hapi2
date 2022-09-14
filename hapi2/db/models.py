@@ -22,13 +22,12 @@ def searchable(Cls):
     Decorator for aliases.
     """    
     @classmethod
-    def get(cls,name=None):
+    def get(cls,name):
         cls_ = getattr(VARSPACE['db_backend'].models,cls.__name__)
         return cls_.get(name)
 
-    def __init__(self,name=None):
-        if self in VARSPACE['session']:
-            return
+    def __init__(self,name):
+        if self in VARSPACE['session']: return
         self.alias = name
 
     def __new__(cls,name=None):
@@ -59,18 +58,21 @@ def searchable_by_alias(Cls):
     Decorator for "aliased" classes.
     """    
     @classmethod
-    def get(cls,name=None):
+    def get(cls,name):
         cls_ = getattr(VARSPACE['db_backend'].models,cls.__name__)
         return cls_.get(name)
 
-    def __init__(self,name=None):
-        if self in VARSPACE['session']:
-            return
-        if name is not None:
-            al = get_alias_class(self.__class__)(name); al.type = 'generic'
-            self.aliases.append(al)
+    def __init__(self,name=None,**kwargs):
+        if self in VARSPACE['session']: return
+        if type(name) is not str:
+            raise Exception('name must be a string')
+        al = get_alias_class(self.__class__)(name); al.type = 'generic'
+        self.aliases.append(al)
+        self.__set_name__(name)
+        for key in kwargs:
+            setattr(self,key,kwargs[key])
 
-    def __new__(cls,name=None):
+    def __new__(cls,name=None,**kwargs): # don't change!!!
         if name is None:
             return super(Cls, cls).__new__(cls)
         obj = Cls.get(name)
@@ -80,7 +82,7 @@ def searchable_by_alias(Cls):
             return obj
             
     def __str__(self):
-        return str(self.name)
+        return self.__get_name__()
 
     def __repr__(self):
         return self.__str__()
@@ -513,8 +515,14 @@ class Source:
         },
     }
 
-    @property
-    def name(self):
+    #@property
+    #def name(self):
+    #    return self.short_alias
+    
+    def __set_name__(self,name):
+        self.short_alias = name
+        
+    def __get_name__(self):
         return self.short_alias
 
     @property
@@ -790,8 +798,14 @@ class Isotopologue:
         },
     }
 
-    @property
-    def name(self):
+    #@property
+    #def name(self):
+    #    return self.iso_name
+
+    def __set_name__(self,name):
+        self.iso_name = name
+        
+    def __get_name__(self):
         return self.iso_name
         
     @property
@@ -898,8 +912,14 @@ class Molecule:
         },
     }
 
-    @property
-    def name(self):
+    #@property
+    #def name(self):
+    #    return self.common_name
+        
+    def __set_name__(self,name):
+        self.common_name = name
+        
+    def __get_name__(self):
         return self.common_name
 
     @property
@@ -1034,8 +1054,14 @@ class CollisionComplex:
         },
     }
 
-    @property
-    def name(self):
+    #@property
+    #def name(self):
+    #    return self.chemical_symbol
+        
+    def __set_name__(self,name):
+        self.chemical_symbol = name
+        
+    def __get_name__(self):
         return self.chemical_symbol
 
     @property
