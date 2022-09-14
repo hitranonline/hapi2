@@ -538,6 +538,13 @@ class Source:
         for source_alias in self.aliases:
             xss.update(source_alias.cia_cross_sections)
         return list(xss)
+        
+    @property
+    def partition_functions(self):
+        pfuncs = set()
+        for source_alias in self.aliases:
+            pfuncs.update(source_alias.partition_functions)
+        return list(pfuncs)
 
     @property
     def transition_parameters(self):
@@ -794,6 +801,13 @@ class Isotopologue:
     @property
     def transitions(self):
         raise NotImplementedError
+        
+    @property
+    def partition_functions(self):
+        pfuncs = set()
+        for iso_alias in self.aliases:
+            pfuncs.update(iso_alias.partition_functions)
+        return list(pfuncs)
 
 @searchable        
 class MoleculeCategory:
