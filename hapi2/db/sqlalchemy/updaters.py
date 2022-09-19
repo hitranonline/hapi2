@@ -291,7 +291,7 @@ def insert_transition_dicts_core_(cls,TRANS_DICTS,linelist_id,local,initial=Fals
 
 def __create_linelist_TMP__(llst_name):
     # !!! TEMPORARY FUNCTION FOR CREATING LINELIST 
-    # (TO BE SUBSTITUTED BY THE GENERAIC CORE FUCTION)
+    # (TO BE SUBSTITUTED BY THE GENERIC CORE FUCTION)
     
     # Create a line list.
     session = VARSPACE['session']

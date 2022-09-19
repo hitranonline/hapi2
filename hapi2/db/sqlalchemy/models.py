@@ -12,6 +12,8 @@ from hapi2.format.dispatch import FormatDispatcher
 from .updaters import __update_and_commit_core__
 from .updaters import __insert_transitions_core__
 
+from sqlalchemy import func, distinct
+
 def searchable__alias(Cls):
     """
     Decorator for aliases (special case).
@@ -388,6 +390,52 @@ class Linelist(models.Linelist):
         return relationship('Transition',secondary='linelist_vs_transition',lazy='dynamic',
             primaryjoin='linelist.c.id==foreign(linelist_vs_transition.c.linelist_id)',
             secondaryjoin='transition.c.id==foreign(linelist_vs_transition.c.transition_id)')
+            
+    @property
+    def molecules(self):
+        
+        models = VARSPACE['db_backend'].models        
+              
+        # get isotopologue alias ids
+        isoal_ids = query(distinct(models.Transition.isotopologue_alias_id)).\
+            join(
+                models.linelist_vs_transition,
+                models.linelist_vs_transition.c.transition_id==models.Transition.id
+            ).\
+            join(
+                models.Linelist,
+                models.linelist_vs_transition.c.linelist_id==models.Linelist.id
+            ).all()
+        isoal_ids = [c[0] for c in isoal_ids]
+        
+        # get isotopologue aliases and isotopologue ids
+        isoals = query(models.IsotopologueAlias).\
+            filter(
+                models.IsotopologueAlias.id.in_(isoal_ids)
+                )
+        iso_ids = set([isoal.isotopologue_id for isoal in isoals])
+        
+        # get isotopologues and molecule alias ids
+        isos = query(models.Isotopologue).\
+            filter(
+                models.Isotopologue.id.in_(iso_ids)
+                )
+        molal_ids = [iso.molecule_alias_id for iso in isos]
+        
+        # get molecule aliases and molecule ids
+        molals = query(models.MoleculeAlias).\
+            filter(
+                models.MoleculeAlias.id.in_(molal_ids)
+                )
+        mol_ids = [molal.molecule_id for molal in molals]        
+        
+        # get molecules from the id list
+        mols = query(models.Molecule).\
+            filter(
+                models.Molecule.id.in_(mol_ids)
+                )
+                
+        return mols.all()
 
 class Transition(models.Transition):
 
@@ -444,6 +492,7 @@ class Isotopologue(models.Isotopologue):
 
     @property
     def transitions(self):
+        
         models = VARSPACE['db_backend'].models
         
         # get isotopologue aliases
@@ -456,11 +505,13 @@ class Isotopologue(models.Isotopologue):
                 models.Isotopologue.id==self.id
                 )
         isoal_ids = [isoal.id for isoal in isoals]
+        
         # get transitions with such isoal ids
         transs = query(models.Transition).\
             filter(
                 models.Transition.isotopologue_alias_id.in_(isoal_ids)
                 )
+        
         return transs
         
 class MoleculeCategory(models.MoleculeCategory):
@@ -516,7 +567,9 @@ class Molecule(models.Molecule):
 
     @property
     def transitions(self):
+        
         models = VARSPACE['db_backend'].models        
+        
         # get isotopologue aliases
         isoals = query(models.IsotopologueAlias).\
             join(
@@ -530,9 +583,11 @@ class Molecule(models.Molecule):
                 models.MoleculeAlias.molecule_id==self.id
                 )
         isoal_ids = [isoal.id for isoal in isoals]
+        
         # get transitions with such isoal ids
         transs = query(models.Transition).filter(
             models.Transition.isotopologue_alias_id.in_(isoal_ids))
+        
         return transs
 
 @searchable__alias

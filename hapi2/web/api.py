@@ -373,6 +373,10 @@ def fetch_transitions(isos,numin,numax,llst_name):
     """
     if type(isos) not in [list,tuple]:
         isos = [isos]
+        
+    # Check if linelist exists.
+    if db_backend.models.Linelist(llst_name) in VARSPACE['session']:
+        raise Exception('linelist %s already exists'%llst_name)
     
     # get the ids of the isotopologues
     ids = [iso.id for iso in isos]
