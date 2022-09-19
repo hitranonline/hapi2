@@ -299,7 +299,8 @@ def __create_linelist_TMP__(llst_name):
     
     llst = session.query(Linelist).filter(Linelist.name==llst_name).first()
     if not llst:
-        llst = Linelist(); llst.name = llst_name
+        #llst = Linelist(); llst.name = llst_name
+        llst = Linelist(None); llst.name = llst_name
         llst.id,_ = get_first_available_(Linelist,'id',local=False)
         session.add(llst)
     
