@@ -181,6 +181,10 @@ class PartitionFunction:
         return self.isotopologue_alias.isotopologue
 
     @property
+    def molecule(self):
+        return self.isotopologue.molecule
+
+    @property
     def source(self):
         return self.source_alias.source
 
