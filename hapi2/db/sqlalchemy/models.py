@@ -238,6 +238,11 @@ class CRUD_Generic(models.CRUD):
         return id(self) < id(obj)
         
     def save(self):
+        if self.id is None:
+            id_ = query(func.min(self.__class__.id)).first()[0]
+            if id_ is None: 
+                id_ = -1
+            self.id = id_
         VARSPACE['session'].add(self)
         VARSPACE['session'].commit() # if no commit is done, fails on saving aliases
             
