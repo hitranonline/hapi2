@@ -423,7 +423,6 @@ class Linelist(models.Linelist):
                 
         return isos.all()
 
-    
     @property
     def molecules(self):
         

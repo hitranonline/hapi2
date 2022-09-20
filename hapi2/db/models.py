@@ -297,6 +297,21 @@ class CrossSection:
 
     __backrefs__ = {}
 
+    def __init__(self,molecule,source,**kwargs):
+        # set molecule alias
+        if molecule in VARSPACE['session']:
+            self.molecule_alias = MoleculeAlias(molecule.common_name)
+        else:
+            self.molecule_alias = molecule.aliases[0]
+        # set source alias
+        if source in VARSPACE['session']:
+            self.source_alias = SourceAlias(source.short_alias)
+        else:
+            self.source_alias = source.aliases[0]
+        # set the rest of parameters
+        for kwarg in kwargs:
+            setattr(self,kwarg,kwargs[kwarg])
+
     @property
     def molecule(self):
         return self.molecule_alias.molecule
@@ -426,6 +441,21 @@ class CIACrossSection(CrossSection):
     }
 
     __backrefs__ = {}
+
+    def __init__(self,molecule,source,**kwargs):
+        # set molecule alias
+        if molecule in VARSPACE['session']:
+            self.molecule_alias = MoleculeAlias(molecule.common_name)
+        else:
+            self.molecule_alias = molecule.aliases[0]
+        # set source alias
+        if source in VARSPACE['session']:
+            self.source_alias = SourceAlias(source.short_alias)
+        else:
+            self.source_alias = source.aliases[0]
+        # set the rest of parameters
+        for kwarg in kwargs:
+            setattr(self,kwarg,kwargs[kwarg])
 
     @property
     def molecule(self):
