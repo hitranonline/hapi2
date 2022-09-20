@@ -390,9 +390,9 @@ class Linelist(models.Linelist):
         return relationship('Transition',secondary='linelist_vs_transition',lazy='dynamic',
             primaryjoin='linelist.c.id==foreign(linelist_vs_transition.c.linelist_id)',
             secondaryjoin='transition.c.id==foreign(linelist_vs_transition.c.transition_id)')
-            
+    
     @property
-    def molecules(self):
+    def isotopologues(self):
         
         models = VARSPACE['db_backend'].models        
               
@@ -420,6 +420,17 @@ class Linelist(models.Linelist):
             filter(
                 models.Isotopologue.id.in_(iso_ids)
                 )
+                
+        return isos.all()
+
+    
+    @property
+    def molecules(self):
+        
+        models = VARSPACE['db_backend'].models 
+        
+        isos = self.isotopologues
+        
         molal_ids = [iso.molecule_alias_id for iso in isos]
         
         # get molecule aliases and molecule ids
