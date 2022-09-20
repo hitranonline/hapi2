@@ -144,6 +144,26 @@ def assemble_relation(cls,rname,refs_flag):
         
     return rel
 
+def find_local_id(obj):
+    """ Find unoccupied local id """
+    id_ = query(func.min(obj.__class__.id)).first()[0]
+    if id_ is None: 
+        id_ = 0
+    return id_ - 1
+
+def save_local_recursive(obj): # recursively save all local objects with negative ids
+    #print('obj>>>',obj.dump())
+    if obj.id is None:
+        obj.id = find_local_id(obj)
+    for refname in obj.__refs__:
+        #print('refname>>>',refname)
+        ref_obj = getattr(obj,refname)
+        if ref_obj is not None:
+            save_local_recursive(ref_obj)
+        ref_obj_id_field = obj.__refs__[refname]['join'][0][0]
+        setattr(obj,ref_obj_id_field,ref_obj.id)
+    VARSPACE['session'].add(obj)
+
 class CRUD_Generic(models.CRUD):    
 
     """
@@ -238,12 +258,7 @@ class CRUD_Generic(models.CRUD):
         return id(self) < id(obj)
         
     def save(self):
-        if self.id is None:
-            id_ = query(func.min(self.__class__.id)).first()[0]
-            if id_ is None: 
-                id_ = -1
-            self.id = id_
-        VARSPACE['session'].add(self)
+        save_local_recursive(self)
         VARSPACE['session'].commit() # if no commit is done, fails on saving aliases
             
     @classmethod

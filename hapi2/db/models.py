@@ -542,7 +542,15 @@ class SourceAlias:
         
     __identity__ = 'alias'
 
-    __refs__ = {}
+    #__refs__ = {}
+    __refs__ = {
+        'source': {
+            'class':'Source',
+            'table':'source',
+            'join':[('source_id','id'),],
+            'backpop':'aliases',
+        },
+    }
 
     __backrefs__ = {}
 
@@ -833,7 +841,15 @@ class IsotopologueAlias:
 
     __identity__ = 'alias'
     
-    __refs__ = {}
+    #__refs__ = {}
+    __refs__ = {
+        'isotopologue': {
+            'class':'Isotopologue',
+            'table':'isotopologue',
+            'join':[('isotopologue_id','id'),],
+            'backpop':'aliases',
+        },
+    }
 
     __backrefs__ = {}
 
@@ -960,7 +976,15 @@ class MoleculeAlias:
 
     __identity__ = 'alias'
     
-    __refs__ = {}
+    #__refs__ = {}
+    __refs__ = {
+        'molecule': {
+            'class':'Molecule',
+            'table':'molecule',
+            'join':[('molecule_id','id'),],
+            'backpop':'aliases',
+        },
+    }
 
     __backrefs__ = {}
 
@@ -1107,7 +1131,15 @@ class CollisionComplexAlias:
 
     __identity__ = 'alias'
     
-    __refs__ = {}
+    #__refs__ = {}
+    __refs__ = {
+        'collision_complex': {
+            'class':'CollisionComplex',
+            'table':'collision_complex',
+            'join':[('collision_complex_id','id'),],
+            'backpop':'aliases',
+        },
+    }
 
     __backrefs__ = {}
 
