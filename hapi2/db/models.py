@@ -12,7 +12,7 @@ from hapi import putRowObjectToString,HITRAN_DEFAULT_HEADER, AtoB
 
 def get_alias_class(cls):
     """
-    Get the Suitable Alias class for a proper aliased class.
+    Get the suitable alias class for a proper aliased class.
     """
     return getattr(VARSPACE['db_backend'].models,
         cls.__backrefs__['aliases']['class'])
@@ -120,7 +120,8 @@ class CRUD:
         field to the dictionary object.
         """
         raise NotImplementedError
-        
+       
+    @classmethod
     def load(self,dct):
         """
         Load object fields given in __keys__ 
@@ -175,6 +176,27 @@ class PartitionFunction:
     }
 
     __backrefs__ = {}
+
+    def __init__(self,isotopologue,source,**kwargs):
+        # set isotopologue alias
+        if isotopologue in VARSPACE['session']:
+            self.isotopologue_alias = IsotopologueAlias(isotopologue.iso_name)
+        else:
+            self.isotopologue_alias = isotopologue.aliases[0]
+        # set source alias
+        if source in VARSPACE['session']:
+            self.source_alias = SourceAlias(source.short_alias)
+        else:
+            self.source_alias = source.aliases[0]
+        # set the rest of parameters
+        keys = [key for key,_ in self.__keys__]
+        keys_valid = set(keys).intersection(kwargs.keys())
+        for key in keys_valid:
+            setattr(self,key,kwargs[key])
+
+    @classmethod
+    def construct(cls,dct):
+        raise NotImplementedError
 
     @property
     def isotopologue(self):
@@ -313,9 +335,15 @@ class CrossSection:
         else:
             self.source_alias = source.aliases[0]
         # set the rest of parameters
-        for kwarg in kwargs:
-            setattr(self,kwarg,kwargs[kwarg])
+        keys = [key for key,_ in self.__keys__]
+        keys_valid = set(keys).intersection(kwargs.keys())
+        for key in keys_valid:
+            setattr(self,key,kwargs[key])
 
+    @classmethod
+    def construct(cls,dct):
+        raise NotImplementedError
+        
     @property
     def molecule(self):
         return self.molecule_alias.molecule
@@ -446,20 +474,27 @@ class CIACrossSection(CrossSection):
 
     __backrefs__ = {}
 
-    def __init__(self,molecule,source,**kwargs):
-        # set molecule alias
+    def __init__(self,collision_complex,source,**kwargs):
+        # set collision complex alias
         if molecule in VARSPACE['session']:
-            self.molecule_alias = MoleculeAlias(molecule.common_name)
+            self.collision_complex_alias = CollisionComplexAlias(
+                collision_complex.chemical_symbol)
         else:
-            self.molecule_alias = molecule.aliases[0]
+            self.collision_complex_alias = collision_complex.aliases[0]
         # set source alias
         if source in VARSPACE['session']:
             self.source_alias = SourceAlias(source.short_alias)
         else:
             self.source_alias = source.aliases[0]
         # set the rest of parameters
-        for kwarg in kwargs:
-            setattr(self,kwarg,kwargs[kwarg])
+        keys = [key for key,_ in self.__keys__]
+        keys_valid = set(keys).intersection(kwargs.keys())
+        for key in keys_valid:
+            setattr(self,key,kwargs[key])
+
+    @classmethod
+    def construct(cls,dct):
+        raise NotImplementedError
 
     @property
     def molecule(self):
@@ -536,7 +571,8 @@ class Source:
         ('short_alias',  {'type':str}),
     )
 
-    __identity__ = 'id'
+    #__identity__ = 'id'
+    __identity__ = 'short_alias'
     
     __refs__ = {}
 
@@ -721,6 +757,22 @@ class Transition:
         
     __states__ = {}
 
+    def __init__(self,isotopologue,**kwargs):
+        # set isotopologue alias
+        if isotopologue in VARSPACE['session']:
+            self.isotopologue_alias = IsotopologueAlias(isotopologue.iso_name)
+        else:
+            self.isotopologue_alias = isotopologue.aliases[0]
+        # set the rest of parameters
+        keys = [key for key,_ in self.__keys__]
+        keys_valid = set(keys).intersection(kwargs.keys())
+        for key in keys_valid:
+            setattr(self,key,kwargs[key])
+
+    @classmethod
+    def construct(cls,dct):
+        raise NotImplementedError
+        
     @property
     def molecule(self):
         return self.isotopologue_alias.molecule

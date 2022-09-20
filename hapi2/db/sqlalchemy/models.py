@@ -195,27 +195,44 @@ class CRUD_Generic(models.CRUD):
         return list(zip(*data))
                 
     def dump(self):
-        dct = {key:getattr(self,key) for key,_ in self.__keys__}
+        dct = {}
         dct['__class__'] = self.__class__.__name__
         dct['__identity__'] = self.__identity__
+        exclude = set()
+        for refname in self.__refs__:
+            dct[refname] = str( getattr(self,refname) )
+            for key,_ in self.__refs__[refname]['join']:
+                exclude.add(key)
+        for key,_ in self.__keys__:
+            if key not in exclude:
+                dct[key] = getattr(self,key)
         return dct
-        
-    def load(self,dct):
-        keys = [key for key,_ in self.__keys__]
-        keys_field_ = set(keys).intersection(dct.keys())
-        for key in keys_field_: # date/time conversion
-            
-            # Take an actual type of the SQLAlchemy field
-            field_type = type(getattr(self.__class__,key).type)
-            
-            if field_type is SQLAlchemyDate and type(dct[key]) in (str,unicode): 
-                # Custom type conversion for "complex" cases (like date format)
-                parsed_date = dateutil_parser.parse(dct[key])
-                val = date(parsed_date.year,parsed_date.month,parsed_date.day)
-                setattr(self,key,val)
-            else:            
-                # This is for the rest of the fields.
-                setattr(self,key,dct[key]) 
+    
+    @classmethod
+    def construct(cls,dct):
+        models = VARSPACE['db_backend'].models
+        obj = cls(dct[cls.__identity__])
+        for refname in cls.__refs__:
+            ref_cls = getattr(models,cls.__refs__[refname]['class'])
+            ref_obj = ref_cls(dct[refname])
+            setattr(obj,refname,ref_obj)
+        return obj
+    
+    @classmethod
+    def load(cls,dct):
+        session = VARSPACE['session']
+        keys = [key for key,_ in cls.__keys__]
+        keys_valid = set(keys).intersection(dct.keys())
+        if 'id' in dct and dct['id'] is not None:
+            obj = session.query(cls).filter(cls.id==dct['id']).first()
+        else:
+            obj = None
+        if obj is None:
+            obj = cls.construct(dct)
+            session.expunge(obj)
+        for key in keys_valid: 
+            setattr(obj,key,dct[key])      
+        return obj
                                       
     def __lt__(self,obj):
         return id(self) < id(obj)
@@ -256,6 +273,21 @@ class PartitionFunction(models.PartitionFunction):
     def source_alias(cls):
         return assemble_relation(cls,'source_alias',refs_flag=True)
 
+    @classmethod
+    def construct(cls,dct):
+        models = VARSPACE['db_backend'].models
+        dct = dct.copy()
+        # get isotopologue alias
+        isoname = dct.pop('source_alias')
+        iso = models.Isotopologue(isoname)
+        # get source
+        srcname = dct.pop('source_alias')
+        src = models.Source(srcname)
+        # construct object
+        obj = models.PartitionFunction(isotopologue=iso,source=src,**dct)
+        #VARSPACE['session'].expunge(obj)
+        return obj
+
 class CrossSectionData(models.CrossSectionData):
 
     @declared_attr
@@ -285,6 +317,21 @@ class CrossSection(models.CrossSection):
     def data(cls):
         return relationship('CrossSectionData',uselist=False,back_populates='header',
             primaryjoin = 'cross_section.c.id==foreign(cross_section_data.c.header_id)')
+            
+    @classmethod
+    def construct(cls,dct):
+        models = VARSPACE['db_backend'].models
+        dct = dct.copy()
+        # get molecule alias
+        molname = dct.pop('molecule_alias')
+        mol = models.Molecule(molname)
+        # get source
+        srcname = dct.pop('source_alias')
+        src = models.Source(srcname)
+        # construct object
+        obj = models.CrossSection(molecule=mol,source=src,**dct)
+        #VARSPACE['session'].expunge(obj)
+        return obj
 
 class CIACrossSectionData(models.CrossSectionData):
 
@@ -315,6 +362,21 @@ class CIACrossSection(models.CIACrossSection):
     def data(cls):
         return relationship('CIACrossSectionData',uselist=False,back_populates='header',
             primaryjoin = 'cia_cross_section.c.id==foreign(cia_cross_section_data.c.header_id)')
+
+    @classmethod
+    def construct(cls,dct):
+        models = VARSPACE['db_backend'].models
+        dct = dct.copy()
+        # get molecule alias
+        ccompname = dct.pop('collision_complex')
+        ccomp = models.CollisionComplex(ccompname)
+        # get source
+        srcname = dct.pop('source_alias')
+        src = models.Source(srcname)
+        # construct object
+        obj = models.CIACrossSection(molecule=mol,source=src,**dct)
+        #VARSPACE['session'].expunge(obj)
+        return obj
 
 @searchable__alias
 class SourceAlias(models.SourceAlias):
@@ -462,6 +524,18 @@ class Transition(models.Transition):
         return relationship('Linelist',secondary='linelist_vs_transition',
             primaryjoin='transition.c.id==foreign(linelist_vs_transition.c.transition_id)',
             secondaryjoin='linelist.c.id==foreign(linelist_vs_transition.c.linelist_id)')
+
+    @classmethod
+    def construct(cls,dct):
+        models = VARSPACE['db_backend'].models
+        dct = dct.copy()
+        # get isotopologue alias
+        isoname = dct.pop('source_alias')
+        iso = models.Isotopologue(isoname)
+        # construct object
+        obj = models.Transition(isotopologue=iso,**dct)
+        #VARSPACE['session'].expunge(obj)
+        return obj
 
 @searchable__alias
 class IsotopologueAlias(models.IsotopologueAlias):

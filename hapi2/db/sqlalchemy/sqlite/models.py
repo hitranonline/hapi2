@@ -81,6 +81,9 @@ class CrossSection(models.CrossSection, models.CRUD_Generic, Base):
 
     # additional HITRANonline-compliant parameters
     filename = Column('filename',VARCHARTYPE(255),unique=IS_UNIQUE) # HITRANonline filename
+    
+    # cross-section has for data lineage...
+    hash = Column('hash',VARCHARTYPE(255))
 
     __table_args__ = (
         #Index('cross_section__molecule_alias_id', molecule_alias_id),
