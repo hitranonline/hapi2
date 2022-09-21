@@ -152,11 +152,9 @@ def find_local_id(obj):
     return id_ - 1
 
 def save_local_recursive(obj): # recursively save all local objects with negative ids
-    #print('obj>>>',obj.dump())
     if obj.id is None:
         obj.id = find_local_id(obj)
     for refname in obj.__refs__:
-        #print('refname>>>',refname)
         ref_obj = getattr(obj,refname)
         if ref_obj is not None:
             save_local_recursive(ref_obj)
@@ -177,18 +175,7 @@ class CRUD_Generic(models.CRUD):
     """
     
     __format_dispatcher_class__ = FormatDispatcher
-    
-    @classmethod
-    def __check_types__(cls,header):
-        """
-        Check if supplied class in header coincides with cls.
-        """
-        supplied_classname = header['content']['class']
-        expected_classname = cls.__name__
-        if expected_classname != supplied_classname:
-            raise Exception('Class mismatch: expected %s, got %s'%\
-                (expected_classname,supplied_classname))
-    
+        
     @classmethod
     def update(cls,header,local=True,**argv):
         tmpdir = SETTINGS['tmpdir']
@@ -213,31 +200,7 @@ class CRUD_Generic(models.CRUD):
         ).all()
     
         return list(zip(*data))
-                
-    def dump(self):
-        dct = {}
-        dct['__class__'] = self.__class__.__name__
-        dct['__identity__'] = self.__identity__
-        exclude = set()
-        for refname in self.__refs__:
-            dct[refname] = str( getattr(self,refname) )
-            for key,_ in self.__refs__[refname]['join']:
-                exclude.add(key)
-        for key,_ in self.__keys__:
-            if key not in exclude:
-                dct[key] = getattr(self,key)
-        return dct
-    
-    @classmethod
-    def construct(cls,dct):
-        models = VARSPACE['db_backend'].models
-        obj = cls(dct[cls.__identity__])
-        for refname in cls.__refs__:
-            ref_cls = getattr(models,cls.__refs__[refname]['class'])
-            ref_obj = ref_cls(dct[refname])
-            setattr(obj,refname,ref_obj)
-        return obj
-    
+                        
     @classmethod
     def load(cls,dct):
         session = VARSPACE['session']
@@ -293,21 +256,6 @@ class PartitionFunction(models.PartitionFunction):
     def source_alias(cls):
         return assemble_relation(cls,'source_alias',refs_flag=True)
 
-    @classmethod
-    def construct(cls,dct):
-        models = VARSPACE['db_backend'].models
-        dct = dct.copy()
-        # get isotopologue alias
-        isoname = dct.pop('source_alias')
-        iso = models.Isotopologue(isoname)
-        # get source
-        srcname = dct.pop('source_alias')
-        src = models.Source(srcname)
-        # construct object
-        obj = models.PartitionFunction(isotopologue=iso,source=src,**dct)
-        #VARSPACE['session'].expunge(obj)
-        return obj
-
 class CrossSectionData(models.CrossSectionData):
 
     @declared_attr
@@ -338,21 +286,6 @@ class CrossSection(models.CrossSection):
         return relationship('CrossSectionData',uselist=False,back_populates='header',
             primaryjoin = 'cross_section.c.id==foreign(cross_section_data.c.header_id)')
             
-    @classmethod
-    def construct(cls,dct):
-        models = VARSPACE['db_backend'].models
-        dct = dct.copy()
-        # get molecule alias
-        molname = dct.pop('molecule_alias')
-        mol = models.Molecule(molname)
-        # get source
-        srcname = dct.pop('source_alias')
-        src = models.Source(srcname)
-        # construct object
-        obj = models.CrossSection(molecule=mol,source=src,**dct)
-        #VARSPACE['session'].expunge(obj)
-        return obj
-
 class CIACrossSectionData(models.CrossSectionData):
 
     @declared_attr
@@ -382,21 +315,6 @@ class CIACrossSection(models.CIACrossSection):
     def data(cls):
         return relationship('CIACrossSectionData',uselist=False,back_populates='header',
             primaryjoin = 'cia_cross_section.c.id==foreign(cia_cross_section_data.c.header_id)')
-
-    @classmethod
-    def construct(cls,dct):
-        models = VARSPACE['db_backend'].models
-        dct = dct.copy()
-        # get molecule alias
-        ccompname = dct.pop('collision_complex')
-        ccomp = models.CollisionComplex(ccompname)
-        # get source
-        srcname = dct.pop('source_alias')
-        src = models.Source(srcname)
-        # construct object
-        obj = models.CIACrossSection(molecule=mol,source=src,**dct)
-        #VARSPACE['session'].expunge(obj)
-        return obj
 
 @searchable__alias
 class SourceAlias(models.SourceAlias):
@@ -543,19 +461,8 @@ class Transition(models.Transition):
     def linelists(cls):
         return relationship('Linelist',secondary='linelist_vs_transition',
             primaryjoin='transition.c.id==foreign(linelist_vs_transition.c.transition_id)',
-            secondaryjoin='linelist.c.id==foreign(linelist_vs_transition.c.linelist_id)')
-
-    @classmethod
-    def construct(cls,dct):
-        models = VARSPACE['db_backend'].models
-        dct = dct.copy()
-        # get isotopologue alias
-        isoname = dct.pop('source_alias')
-        iso = models.Isotopologue(isoname)
-        # construct object
-        obj = models.Transition(isotopologue=iso,**dct)
-        #VARSPACE['session'].expunge(obj)
-        return obj
+            secondaryjoin='linelist.c.id==foreign(linelist_vs_transition.c.linelist_id)',
+            overlaps="transitions")
 
 @searchable__alias
 class IsotopologueAlias(models.IsotopologueAlias):
@@ -656,7 +563,8 @@ class MoleculeAlias(models.MoleculeAlias):
     def categories(cls):
         return relationship('MoleculeCategory',secondary='molecule_alias_vs_molecule_category',
             primaryjoin='molecule_alias.c.id==foreign(molecule_alias_vs_molecule_category.c.molecule_alias_id)',
-            secondaryjoin='molecule_category.c.id==foreign(molecule_alias_vs_molecule_category.c.molecule_category_id)')
+            secondaryjoin='molecule_category.c.id==foreign(molecule_alias_vs_molecule_category.c.molecule_category_id)',
+            overlaps="molecule_aliases")
 
 @searchable_by_alias
 class Molecule(models.Molecule):

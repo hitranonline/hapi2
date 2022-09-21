@@ -374,6 +374,10 @@ def fetch_transitions(isos,numin,numax,llst_name):
     if type(isos) not in [list,tuple]:
         isos = [isos]
         
+    # Check if server info in downloaded.
+    if 'server_info' not in VARSPACE:
+        fetch_info()
+        
     # Check if linelist exists.
     if db_backend.models.Linelist(llst_name) in VARSPACE['session']:
         raise Exception('linelist %s already exists'%llst_name)

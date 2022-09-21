@@ -43,7 +43,7 @@ __db_backend_objects__ = [
     'SourceAlias','CrossSection','Transition','Isotopologue',
     'IsotopologueAlias','ParameterMeta','Linelist',
     'MoleculeCategory','CIACrossSection','CollisionComplex',
-    'CollisionComplexAlias','PartitionFunction'
+    'CollisionComplexAlias','PartitionFunction','Mixture'
 ]
 for _ in __db_backend_objects__:
     setattr(sys.modules[__name__], _, 
@@ -62,3 +62,4 @@ for _ in __web_api_objects__:
     setattr(sys.modules[__name__], _, 
         getattr(web.api, _))
 
+from . import provenance

@@ -99,7 +99,18 @@ class CRUD:
     """
     Implements helper funcs for (C)reate, (R)ead, (U)pdate, and (D)elete.
     """
-   
+
+    @classmethod
+    def __check_types__(cls,header):
+        """
+        Check if supplied class in header coincides with cls.
+        """
+        supplied_classname = header['content']['class']
+        expected_classname = cls.__name__
+        if expected_classname != supplied_classname:
+            raise Exception('Class mismatch: expected %s, got %s'%\
+                (expected_classname,supplied_classname))
+
     @classmethod
     def update(cls,dct):
         """
@@ -119,8 +130,32 @@ class CRUD:
         Dump serialized keys given in __keys__
         field to the dictionary object.
         """
-        raise NotImplementedError
-       
+        dct = {}
+        dct['__class__'] = self.__class__.__name__
+        dct['__identity__'] = self.__identity__
+        exclude = set()
+        for refname in self.__refs__:
+            dct[refname] = str( getattr(self,refname) )
+            for key,_ in self.__refs__[refname]['join']:
+                exclude.add(key)
+        for key,_ in self.__keys__:
+            if key not in exclude:
+                dct[key] = getattr(self,key)
+        return dct
+
+    @classmethod
+    def construct(cls,dct):
+        """
+        Construct a new object from the input dictionary.
+        """
+        models = VARSPACE['db_backend'].models
+        obj = cls(dct[cls.__identity__])
+        for refname in cls.__refs__:
+            ref_cls = getattr(models,cls.__refs__[refname]['class'])
+            ref_obj = ref_cls(dct[refname])
+            setattr(obj,refname,ref_obj)
+        return obj
+
     @classmethod
     def load(self,dct):
         """
@@ -139,6 +174,85 @@ class CRUD:
     def all(cls):
         raise NotImplementedError
 
+def merge_abundance_dicts(dct1,dct2,a1,a2):
+    """ Merge abundance dictionaries with weights. """
+    dct_ = {}
+    for key in dct1:
+        dct_[key] = a1*dct1[key]
+    for key in dct2:
+        if key in dct_:
+            dct_[key] += a2*dct2[key]
+        else:
+            dct_[key] = a2*dct2[key]
+    return dct_
+
+class Mixture:
+    """ Transient class representing the gas mixture. """
+    
+    def __init__(self,components,isocomp={}):
+        if type(components) is str:
+            components = {components:1}
+        self.components = components
+        self.isocomp = {}
+        for comp in components:
+            if comp in isocomp:
+                self.isocomp[comp] = isocomp[comp]
+            else:
+                isos = Molecule(comp).isotopologues
+                if isos:
+                    self.isocomp[comp] = {iso.iso_name:iso.abundance for iso in isos}
+    
+    def __clone__(self):
+        components = self.components.copy()
+        isocomp = self.isocomp.copy()
+        mix = Mixture(components,isocomp)
+        return mix
+    
+    def __mul__(self,vmr):
+        mix = self.__clone__()
+        for comp in mix.components:
+            mix.components[comp] *= vmr
+        return mix
+    
+    def __rmul__(self,vmr):
+        return self.__mul__(vmr)
+
+    def __add__(self,mix):
+        # merge mix into mix_
+        mix_ = self.__clone__()
+        mix = mix.__clone__()
+        # merge isocomps first
+        for molname in mix_.isocomp:
+            dct = mix_.isocomp[molname]
+            if molname in mix.isocomp:
+                mix.isocomp[molname] = merge_abundance_dicts(mix.isocomp[molname],dct,1,1) 
+            else:
+                mix.isocomp[molname] = dct.copy()
+        # merge components
+        mix.components = merge_abundance_dicts(mix_.components,mix.components,1,1)
+        return mix
+        
+    def get_component_name(self,mol):
+        if '__components_lookup__' not in self.__dict__:
+            self.__components_lookup__ = {}
+            for compname in self.components:
+                self.__components_lookup__[Molecule(compname)] = compname
+        return self.__components_lookup__[mol]
+    
+    @classmethod
+    def __dump__(self,mix):
+        return {'components':mix.components,'isocomp':mix.isocomp}
+
+    @classmethod
+    def __load__(self,dct):
+        mix = Mixture(dct['components'],dct['isocomp'])
+        return mix
+
+    def __repr__(self):
+        return 'Mixture(%s)'%(
+            ', '.join('%s -> %f'%(comp,self.components[comp]) \
+                for comp in self.components))
+                    
 class PartitionFunction:
     """ Follows the definition of Partition Function given in 
         Gamache RR, et al. DOI:10.1016/j.jqsrt.2017.03.045 """
@@ -196,7 +310,18 @@ class PartitionFunction:
 
     @classmethod
     def construct(cls,dct):
-        raise NotImplementedError
+        models = VARSPACE['db_backend'].models
+        dct = dct.copy()
+        # get isotopologue alias
+        isoname = dct.pop('source_alias')
+        iso = models.Isotopologue(isoname)
+        # get source
+        srcname = dct.pop('source_alias')
+        src = models.Source(srcname)
+        # construct object
+        obj = models.PartitionFunction(isotopologue=iso,source=src,**dct)
+        #VARSPACE['session'].expunge(obj)
+        return obj
 
     @property
     def isotopologue(self):
@@ -209,6 +334,9 @@ class PartitionFunction:
     @property
     def source(self):
         return self.source_alias.source
+
+    def __call__(self,T):
+        return self.Q(T)
 
     def Q(self,T):
         if 'data' not in self.__dict__:
@@ -342,7 +470,18 @@ class CrossSection:
 
     @classmethod
     def construct(cls,dct):
-        raise NotImplementedError
+        models = VARSPACE['db_backend'].models
+        dct = dct.copy()
+        # get molecule alias
+        molname = dct.pop('molecule_alias')
+        mol = models.Molecule(molname)
+        # get source
+        srcname = dct.pop('source_alias')
+        src = models.Source(srcname)
+        # construct object
+        obj = models.CrossSection(molecule=mol,source=src,**dct)
+        #VARSPACE['session'].expunge(obj)
+        return obj
         
     @property
     def molecule(self):
@@ -494,7 +633,18 @@ class CIACrossSection(CrossSection):
 
     @classmethod
     def construct(cls,dct):
-        raise NotImplementedError
+        models = VARSPACE['db_backend'].models
+        dct = dct.copy()
+        # get molecule alias
+        ccompname = dct.pop('collision_complex')
+        ccomp = models.CollisionComplex(ccompname)
+        # get source
+        srcname = dct.pop('source_alias')
+        src = models.Source(srcname)
+        # construct object
+        obj = models.CIACrossSection(molecule=mol,source=src,**dct)
+        #VARSPACE['session'].expunge(obj)
+        return obj
 
     @property
     def molecule(self):
@@ -779,7 +929,15 @@ class Transition:
 
     @classmethod
     def construct(cls,dct):
-        raise NotImplementedError
+        models = VARSPACE['db_backend'].models
+        dct = dct.copy()
+        # get isotopologue alias
+        isoname = dct.pop('source_alias')
+        iso = models.Isotopologue(isoname)
+        # construct object
+        obj = models.Transition(isotopologue=iso,**dct)
+        #VARSPACE['session'].expunge(obj)
+        return obj
         
     @property
     def molecule(self):
