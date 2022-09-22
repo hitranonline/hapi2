@@ -1126,7 +1126,7 @@ class Container_Tree(Container):
 Container.register(Container_Tree)
 
 # provenance decorator
-def track_prov(nout,autosave=False,cache=True):
+def track(nout,autosave=False,cache=True):
     def inner(foo):
         def wrapper(*args,**kwargs):
             w = Workflow(foo,args=args,kwargs=kwargs,nout=nout)

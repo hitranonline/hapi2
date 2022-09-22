@@ -67,7 +67,7 @@ class CrossSection(models.CrossSection, models.CRUD_Generic, Base):
     # additional HITRANonline-compliant parameters parameters
     filename = Column('filename',VARCHARTYPE(250),unique=IS_UNIQUE) # HITRANonline filename
 
-    # cross-section has for data lineage...
+    # cross-section hash for data lineage...
     hash = Column('hash',VARCHARTYPE(255))
 
     __table_args__ = (
@@ -109,6 +109,9 @@ class CIACrossSection(models.CIACrossSection, models.CRUD_Generic, Base):
     # additional HITRANonline-compliant parameters
     #filename = Column('filename',VARCHARTYPE(255),unique=IS_UNIQUE) # HITRANonline filename
     filename = Column('filename',VARCHARTYPE(255),unique=False) # HITRANonline filename
+
+    # cia cross-section hash for data lineage...
+    hash = Column('hash',VARCHARTYPE(255))
 
     __table_args__ = (
         #Index('cross_section__collision_complex_id', collision_complex_id),

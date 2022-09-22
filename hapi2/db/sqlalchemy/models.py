@@ -222,7 +222,7 @@ class CRUD_Generic(models.CRUD):
         
     def save(self):
         if 'hash' in self.__dict__: # stub, must be removed when all objects will have hash
-            _, hashval = self.__class__.pack(obj)
+            _, hashval = self.__class__.pack(self)
             self.hash = hashval
         save_local_recursive(self)
         VARSPACE['session'].commit() # if no commit is done, fails on saving aliases

@@ -39,7 +39,7 @@ db_backend = VARSPACE['db_backend']
 
 session = VARSPACE['session']
 
-prov_backend = VARSPACE['prov_backend']
+provenance = VARSPACE['prov_backend']
 
 storage2cache = db_backend.storage2cache
 
