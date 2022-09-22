@@ -1,5 +1,7 @@
 from hapi2.config import VARSPACE
 
+from hapi2.opacity import Mixture
+
 from .libra2 import *
 
 models = VARSPACE['db_backend'].models
@@ -62,5 +64,5 @@ class Container_CIACrossSection(Container_HAPI2_stored):
 Container.register(Container_CIACrossSection)
 
 class Container_Mixture(Container_HAPI2_stored):    
-    __contained_class__ = models.Mixture
+    __contained_class__ = Mixture
 Container.register(Container_Mixture)

@@ -49,12 +49,11 @@ __db_backend_objects__ = [
     'SourceAlias','CrossSection','Transition','Isotopologue',
     'IsotopologueAlias','ParameterMeta','Linelist',
     'MoleculeCategory','CIACrossSection','CollisionComplex',
-    'CollisionComplexAlias','PartitionFunction','Mixture'
+    'CollisionComplexAlias','PartitionFunction'
 ]
 for _ in __db_backend_objects__:
     setattr(sys.modules[__name__], _, 
         getattr(db_backend.models, _))
-
 
 __web_api_objects__ = [
     'fetch_molecule_categories','fetch_parameter_metas',
@@ -67,3 +66,5 @@ __web_api_objects__ = [
 for _ in __web_api_objects__:
     setattr(sys.modules[__name__], _, 
         getattr(web.api, _))
+
+from .opacity import Mixture

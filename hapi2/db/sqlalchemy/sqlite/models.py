@@ -10,9 +10,6 @@ from ..base import commit, query
 
 from hapi2.db.sqlalchemy import models
 
-# import transient models
-from hapi2.db.models import Mixture
-
 BLOBTYPE = BLOB
 TEXTTYPE = String(255)
 VARCHARTYPE = String
