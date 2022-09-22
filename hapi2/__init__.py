@@ -26,6 +26,10 @@ db.init()
 from . import web
 web.init()
 
+# Initialize the provenance module.
+from . import provenance
+provenance.init()
+
 # Do higher-level imports.
 from hapi2.collect import Collection
 from hapi2.utils import tic,toc,tictoc
@@ -34,6 +38,8 @@ from hapi2.format.utils import read_header
 db_backend = VARSPACE['db_backend']
 
 session = VARSPACE['session']
+
+prov_backend = VARSPACE['prov_backend']
 
 storage2cache = db_backend.storage2cache
 
@@ -61,5 +67,3 @@ __web_api_objects__ = [
 for _ in __web_api_objects__:
     setattr(sys.modules[__name__], _, 
         getattr(web.api, _))
-
-from . import provenance

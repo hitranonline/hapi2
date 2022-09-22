@@ -514,8 +514,8 @@ class ContainerGraph:
 
 graph_backend = ContainerGraph()
 
-# simple version of save_lineage, doesn't go recursive
-#def save_lineage(obj):
+# simple version of save_graph, doesn't go recursive
+#def save_graph(obj):
 #    """ Main saving function for objects/containers """
 #    
 #    # save current container
@@ -534,7 +534,7 @@ graph_backend = ContainerGraph()
 #    for c in children:
 #        db_backend.insert(c)
 
-# recursive version of save_lineage
+# recursive version of save_graph
 def __save_subgraph_rec__(container):
  
     DEBUG = False
@@ -567,7 +567,7 @@ def __save_subgraph_rec__(container):
         else:
             if DEBUG: print('Succesfully found',c,'(recursion break)')
     
-def save_lineage(*objs):
+def save_graph(*objs):
     """ Main saving function for objects/containers """
     for obj in objs:
         container = graph_backend.get_containers_by_object_ids(id(obj))[0]
@@ -1125,8 +1125,8 @@ class Container_Tree(Container):
 
 Container.register(Container_Tree)
 
-# lineage decorator
-def lineage(nout,autosave=False,cache=True):
+# provenance decorator
+def track_prov(nout,autosave=False,cache=True):
     def inner(foo):
         def wrapper(*args,**kwargs):
             w = Workflow(foo,args=args,kwargs=kwargs,nout=nout)
@@ -1134,7 +1134,7 @@ def lineage(nout,autosave=False,cache=True):
             #graph_backend.__cache__[id(w)] = w # save workflow in cache
             res = [output.object for output in w.outputs]
             if len(res)==1: res = res[0]
-            if autosave: save_lineage(w)
+            if autosave: save_graph(w)
             return res
         return wrapper
     return inner

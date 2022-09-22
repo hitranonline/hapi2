@@ -1,4 +1,5 @@
 import re
+import binascii
 import numpy as np
 
 from hapi2.config import VARSPACE        
@@ -112,9 +113,9 @@ class CRUD:
                 (expected_classname,supplied_classname))
 
     @classmethod
-    def update(cls,dct):
+    def update(cls,header,local=True,**argv):
         """
-        Update existing entries or create new in if not found.
+        Update database instances using the REST API header.
         """
         raise NotImplementedError
 
@@ -142,6 +143,22 @@ class CRUD:
             if key not in exclude:
                 dct[key] = getattr(self,key)
         return dct
+        
+    @classmethod
+    def pack(cls,obj):
+        """ Pack object for provenance. Return buffer and hash. """
+        prov = VARSPACE['prov_backend']
+        dct = obj.dump()
+        buffer = prov.dump_to_string(dct)
+        hashval = prov.calc_hash_dict(dct)
+        return buffer, hashval
+    
+    @classmethod
+    def unpack(cls,buffer):
+        prov = VARSPACE['prov_backend']
+        """ Unpack object for provenance. """
+        dct = prov.load_from_string(buffer)
+        return cls.load(dct)
 
     @classmethod
     def construct(cls,dct):
@@ -240,14 +257,29 @@ class Mixture:
         return self.__components_lookup__[mol]
     
     @classmethod
-    def __dump__(self,mix):
+    def dump(self,mix):
         return {'components':mix.components,'isocomp':mix.isocomp}
 
     @classmethod
-    def __load__(self,dct):
+    def load(self,dct):
         mix = Mixture(dct['components'],dct['isocomp'])
         return mix
 
+    @classmethod
+    def pack(cls,obj):
+        prov = VARSPACE['prov_backend']
+        dct = cls.dump(obj) 
+        buffer = prov.dump_to_string(dct)
+        hashval = prov.calc_hash_dict(dct)
+        return buffer, hashval
+    
+    @classmethod
+    def unpack(cls,buffer):
+        prov = VARSPACE['prov_backend']
+        dct = prov.load_from_string(buffer)
+        mix = cls.load(dct)
+        return mix
+    
     def __repr__(self):
         return 'Mixture(%s)'%(
             ', '.join('%s -> %f'%(comp,self.components[comp]) \
@@ -320,8 +352,25 @@ class PartitionFunction:
         src = models.Source(srcname)
         # construct object
         obj = models.PartitionFunction(isotopologue=iso,source=src,**dct)
-        #VARSPACE['session'].expunge(obj)
         return obj
+        
+    @classmethod
+    def pack(cls,obj):
+        prov = VARSPACE['prov_backend']
+        dct = obj.dump()
+        dct['__QQ__'] = binascii.hexlify(dct['__QQ__']).decode(ENCODING)
+        dct['__TT__'] = binascii.hexlify(dct['__TT__']).decode(ENCODING)
+        buffer = prov.dump_to_string(dct)
+        hashval = prov.calc_hash_dict(dct)
+        return buffer, hashval
+
+    @classmethod
+    def unpack(cls,buffer):
+        prov = VARSPACE['prov_backend']
+        dct = prov.load_from_string(buffer)
+        dct['__QQ__'] = binascii.unhexlify(dct['__QQ__'])
+        dct['__TT__'] = binascii.unhexlify(dct['__TT__'])  
+        return cls.load(dct)
 
     @property
     def isotopologue(self):
@@ -480,9 +529,24 @@ class CrossSection:
         src = models.Source(srcname)
         # construct object
         obj = models.CrossSection(molecule=mol,source=src,**dct)
-        #VARSPACE['session'].expunge(obj)
         return obj
+    
+    @classmethod
+    def pack(cls,obj):
+        prov = VARSPACE['prov_backend']
+        dct = obj.dump()
+        del dct['id']
+        nu,xsc = obj.get_data()
+        dct['hash_nu'] = prov.pack_ndarray(nu)[1] if nu is not None else '' 
+        dct['hash_xsc'] = prov.pack_ndarray(xsc)[1] if xsc is not None  else '' 
+        buffer = prov.dump_to_string(dct)
+        hashval = prov.calc_hash_dict(dct)
+        return buffer, hashval
         
+    @classmethod
+    def unpack(cls,buffer):
+        raise NotImplementedError
+    
     @property
     def molecule(self):
         return self.molecule_alias.molecule
@@ -643,9 +707,24 @@ class CIACrossSection(CrossSection):
         src = models.Source(srcname)
         # construct object
         obj = models.CIACrossSection(molecule=mol,source=src,**dct)
-        #VARSPACE['session'].expunge(obj)
         return obj
 
+    @classmethod
+    def pack(cls,obj):
+        prov = VARSPACE['prov_backend']
+        dct = obj.dump()
+        del dct['id']
+        nu,xsc = obj.get_data()
+        dct['hash_nu'] = prov.pack_ndarray(nu)[1] if nu is not None else '' 
+        dct['hash_xsc'] = prov.pack_ndarray(xsc)[1] if xsc is not None  else '' 
+        buffer = prov.dump_to_string(dct)
+        hashval = prov.calc_hash_dict(dct)
+        return buffer, hashval
+
+    @classmethod
+    def unpack(cls,buffer):
+        raise NotImplementedError
+        
     @property
     def molecule(self):
         raise Exception('obsolete method for CIACrossSection') 
@@ -936,7 +1015,6 @@ class Transition:
         iso = models.Isotopologue(isoname)
         # construct object
         obj = models.Transition(isotopologue=iso,**dct)
-        #VARSPACE['session'].expunge(obj)
         return obj
         
     @property

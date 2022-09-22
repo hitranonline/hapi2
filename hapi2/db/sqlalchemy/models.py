@@ -221,9 +221,13 @@ class CRUD_Generic(models.CRUD):
         return id(self) < id(obj)
         
     def save(self):
+        if 'hash' in self.__dict__: # stub, must be removed when all objects will have hash
+            _, hashval = self.__class__.pack(obj)
+            self.hash = hashval
         save_local_recursive(self)
         VARSPACE['session'].commit() # if no commit is done, fails on saving aliases
-            
+
+
     @classmethod
     def all(cls):
         return VARSPACE['session'].query(cls).all()
@@ -285,7 +289,7 @@ class CrossSection(models.CrossSection):
     def data(cls):
         return relationship('CrossSectionData',uselist=False,back_populates='header',
             primaryjoin = 'cross_section.c.id==foreign(cross_section_data.c.header_id)')
-            
+                
 class CIACrossSectionData(models.CrossSectionData):
 
     @declared_attr
