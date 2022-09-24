@@ -30,6 +30,10 @@ web.init()
 from . import provenance
 provenance.init()
 
+# Initialize the opacity module.
+from . import opacity
+opacity.init()
+
 # Do higher-level imports.
 from hapi2.collect import Collection
 from hapi2.utils import tic,toc,tictoc
@@ -40,6 +44,8 @@ db_backend = VARSPACE['db_backend']
 session = VARSPACE['session']
 
 provenance = VARSPACE['prov_backend']
+
+opacity = VARSPACE['opacity']
 
 storage2cache = db_backend.storage2cache
 
@@ -67,4 +73,11 @@ for _ in __web_api_objects__:
     setattr(sys.modules[__name__], _, 
         getattr(web.api, _))
 
-from .opacity import Mixture
+__opacity_objects__ = [
+    'Mixture','Conditions',
+]
+
+for _ in __opacity_objects__:
+    setattr(sys.modules[__name__], _, 
+        getattr(opacity, _))
+

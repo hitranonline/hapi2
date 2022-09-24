@@ -623,17 +623,19 @@ class Container(ABC):
     def pack(self,obj):
         """ Serialize object to string buffer.
             Return the tuple (buffer, hash). """
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def unpack(self):
         """ Return unpacked object """
-        pass
+        raise NotImplementedError
+        
+    def pretty_print(self):
+        return self.__hashval__[:5]        
         
     @property
     def object(self):
         if '__object__' not in self.__dict__:
-        #if self.__object__ is None:
             self.__object__ = self.unpack()
         return self.__object__
         
@@ -648,7 +650,7 @@ class Container(ABC):
         
     def __repr__(self):
         return self.__hashval__
- 
+         
 class Container_function(Container):
     
     __contained_class__ = (lambda:None).__class__
@@ -668,6 +670,10 @@ class Container_function(Container):
         exec(__funcdict__235237645['source'])
         loc = locals()
         return loc[__funcdict__235237645['name']]
+        
+    def pretty_print(self):
+        dct = json.loads(self.__buffer__)
+        return 'function(%s)'%dct['name']
 
 Container.register(Container_function)
 
@@ -1005,6 +1011,10 @@ class Container_ndarray(Container):
     
     def unpack(self):        
         return unpack_ndarray(self.__buffer__)
+        
+    def pretty_print(self):
+        ar = self.object
+        return 'ndarray(%d elements)'%np.mul(ar.shape)
 
 Container.register(Container_ndarray)
 
@@ -1019,6 +1029,10 @@ class Container_list(Container):
     
     def unpack(self):
         return load_from_string(self.__buffer__)
+        
+    def pretty_print(self):
+        lst = self.object
+        return 'list(%d elements)'%len(lst)
 
 Container.register(Container_list)
 
@@ -1034,6 +1048,10 @@ class Container_tuple(Container):
     def unpack(self):
         return tuple(load_from_string(self.__buffer__))
 
+    def pretty_print(self):
+        tup = self.object
+        return 'tuple(%d elements)'%len(tup)
+
 Container.register(Container_tuple)
 
 class Container_dict(Container):
@@ -1048,21 +1066,22 @@ class Container_dict(Container):
     def unpack(self):
         return load_from_string(self.__buffer__)
 
+    def pretty_print(self):
+        dct = self.object
+        return 'dict(%d elements)'%len(dct)
+
 Container.register(Container_dict)
 
-class Container_list_flat(Container):
-    __contained_class__ = list
-
+#class Container_list_flat(Container):
+#    __contained_class__ = list
 #Container.register(Container_list_flat)
 
-class Container_tuple_flat(Container):
-    __contained_class__ = tuple
-
+#class Container_tuple_flat(Container):
+#    __contained_class__ = tuple
 #Container.register(Container_tuple_flat)
 
-class Container_dict_flat(Container):
-    __contained_class__ = dict
-
+#class Container_dict_flat(Container):
+#    __contained_class__ = dict
 #Container.register(Container_dict_flat)
 
 class Container_Collection(Container):
@@ -1079,6 +1098,10 @@ class Container_Collection(Container):
         col = j.Collection()
         col.__dicthash__ = load_from_string(self.__buffer__)
         return col
+        
+    def pretty_print(self):
+        col = self.object
+        return str(col)
 
 Container.register(Container_Collection)
 
@@ -1093,6 +1116,9 @@ class Container_module(Container):
     
     def unpack(self):
         return __import__(self.__buffer__)
+        
+    def pretty_print(self):
+        return 'module(%s)'%self.__buffer__
 
 Container.register(Container_module)
         

@@ -350,7 +350,7 @@ def absorptionCoefficient_Voigt(Components=None,SourceTables=None,partitionFunct
     if LineShift is not True: raise NotImplementedError('disabling line shift is not implemented for the Numba version')
     if File is not None: raise NotImplementedError('saving to file is not implemented for the Numba version')
     if Format is not None: raise NotImplementedError('saving to file is not implemented for the Numba version')
-    if Components is not None: raise NotImplementedError('filtering by components is not implemented for the Numba version')
+    #if Components is not None: raise NotImplementedError('filtering by components is not implemented for the Numba version')
     
     # Paremeters OmegaRange,OmegaStep,OmegaWing,OmegaWingHW, and OmegaGrid
     # are deprecated and given for backward compatibility with the older versions.
@@ -441,7 +441,10 @@ def absorptionCoefficient_Voigt(Components=None,SourceTables=None,partitionFunct
     #print('  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 
     return nu,xsc
-        
+
+def absorptionCoefficient_Generic(profile,calcpars,*args,**kwargs):
+    return absorptionCoefficient_Voigt(*args,**kwargs)
+
 #========================================================================
 # INTERFACE FOR BACKWARDS COMPATIBILITY WITH HAPI v1.0 (LORENTZ PROFILE)
 #========================================================================
@@ -503,7 +506,7 @@ def absorptionCoefficient_Lorentz(Components=None,SourceTables=None,partitionFun
     if LineShift is not True: raise NotImplementedError('disabling line shift is not implemented for the Numba version')
     if File is not None: raise NotImplementedError('saving to file is not implemented for the Numba version')
     if Format is not None: raise NotImplementedError('saving to file is not implemented for the Numba version')
-    if Components is not None: raise NotImplementedError('filtering by components is not implemented for the Numba version')
+    #if Components is not None: raise NotImplementedError('filtering by components is not implemented for the Numba version')
     
     # Paremeters OmegaRange,OmegaStep,OmegaWing,OmegaWingHW, and OmegaGrid
     # are deprecated and given for backward compatibility with the older versions.
@@ -636,7 +639,7 @@ def absorptionCoefficient_Doppler(Components=None,SourceTables=None,partitionFun
     if LineShift is not True: raise NotImplementedError('disabling line shift is not implemented for the Numba version')
     if File is not None: raise NotImplementedError('saving to file is not implemented for the Numba version')
     if Format is not None: raise NotImplementedError('saving to file is not implemented for the Numba version')
-    if Components is not None: raise NotImplementedError('filtering by components is not implemented for the Numba version')
+    #if Components is not None: raise NotImplementedError('filtering by components is not implemented for the Numba version')
     
     # Paremeters OmegaRange,OmegaStep,OmegaWing,OmegaWingHW, and OmegaGrid
     # are deprecated and given for backward compatibility with the older versions.
@@ -1095,3 +1098,5 @@ def CALC_test(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NL
     
     #return Omegas,Xsect
     return Xsect
+    
+    

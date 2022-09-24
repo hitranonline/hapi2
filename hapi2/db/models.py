@@ -536,7 +536,7 @@ class CrossSection:
         raise NotImplementedError
 
     def __str__(self):
-        return '%s : %s'%(self.source_alias,self.molecule_alias)
+        return '%s: %s'%(self.source_alias,self.molecule_alias)
     
     def __repr__(self):
         return self.__str__()
@@ -752,7 +752,7 @@ class Source:
         for source_alias in self.aliases:
             xss.update(source_alias.cross_sections)
         return list(xss)
-
+    
     @property
     def cia_cross_sections(self):
         xss = set()

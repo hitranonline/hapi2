@@ -1,7 +1,5 @@
 from hapi2.config import VARSPACE
 
-from hapi2.opacity import Mixture
-
 from .libra2 import *
 
 models = VARSPACE['db_backend'].models
@@ -14,8 +12,12 @@ class Container_HAPI2_stored(Container):
     
     def unpack(self):
         return self.__contained_class__.unpack(self.__buffer__)
-
-class Container_PartitionFunction(Container):
+        
+    def pretty_print(self):
+        obj = self.object
+        return '%s(%s)'%(obj.__class__.__name__,str(obj))
+        
+class Container_PartitionFunction(Container_HAPI2_stored):
     __contained_class__ = models.PartitionFunction
 Container.register(Container_PartitionFunction)
 
@@ -40,29 +42,19 @@ class Container_Source(Container_HAPI2_stored):
 Container.register(Container_Source)
 
 class Container_CrossSection(Container_HAPI2_stored):
-
     __contained_class__ = models.CrossSection
-
     def unpack(self):
         dct = load_from_string(self.__buffer__)
         return session.query(self.__contained_class__).\
             filter(getattr(self.__contained_class__,'hash').\
-                like(self.__hashval__)).first()
-        
+                like(self.__hashval__)).first()        
 Container.register(Container_CrossSection)
 
 class Container_CIACrossSection(Container_HAPI2_stored):
-
     __contained_class__ = models.CIACrossSection
-
     def unpack(self):
         dct = load_from_string(self.__buffer__)
         return session.query(self.__contained_class__).\
             filter(getattr(self.__contained_class__,'hash').\
-                like(self.__hashval__)).first()
-                
+                like(self.__hashval__)).first()     
 Container.register(Container_CIACrossSection)
-
-class Container_Mixture(Container_HAPI2_stored):    
-    __contained_class__ = Mixture
-Container.register(Container_Mixture)

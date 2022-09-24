@@ -221,7 +221,7 @@ class CRUD_Generic(models.CRUD):
         return id(self) < id(obj)
         
     def save(self):
-        if 'hash' in self.__dict__: # stub, must be removed when all objects will have hash
+        if 'hash' in self.__class__.__dict__: # stub, must be removed when all objects will have hash
             _, hashval = self.__class__.pack(self)
             self.hash = hashval
         save_local_recursive(self)
@@ -409,7 +409,8 @@ class Linelist(models.Linelist):
             join(
                 models.Linelist,
                 models.linelist_vs_transition.c.linelist_id==models.Linelist.id
-            ).all()
+            ).\
+            filter(models.Linelist.id==self.id).all()
         isoal_ids = [c[0] for c in isoal_ids]
         
         # get isotopologue aliases and isotopologue ids

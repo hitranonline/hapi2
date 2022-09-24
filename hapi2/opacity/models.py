@@ -1,4 +1,12 @@
+from . import lbl
+from . import xsc
+from . import cia
+
 from hapi2.config import VARSPACE        
+
+provenance = VARSPACE['prov_backend']
+Container = provenance.Container
+Container_HAPI2_stored = provenance.Container_HAPI2_stored
 
 def merge_abundance_dicts(dct1,dct2,a1,a2):
     """ Merge abundance dictionaries with weights. """
@@ -12,7 +20,50 @@ def merge_abundance_dicts(dct1,dct2,a1,a2):
             dct_[key] = a2*dct2[key]
     return dct_
 
-class Mixture:
+class Serializable: # mocks up the behavior of the persistent classes
+    
+    @classmethod
+    def pack(cls,obj):
+        prov = VARSPACE['prov_backend']
+        dct = cls.dump(obj) 
+        buffer = prov.dump_to_string(dct)
+        hashval = prov.calc_hash_dict(dct)
+        return buffer, hashval
+    
+    @classmethod
+    def unpack(cls,buffer):
+        prov = VARSPACE['prov_backend']
+        dct = prov.load_from_string(buffer)
+        mix = cls.load(dct)
+        return mix
+
+class Conditions(Serializable):
+    """ Transient class representing the thermodynamical conditions. """
+    
+    def __init__(self,T=296,p=1):
+        self.dict = dict(T=T,p=p)
+    
+    @property
+    def T(self):
+        return self.dict['T']
+
+    @property
+    def p(self):
+        return self.dict['p']
+
+    @classmethod
+    def dump(self,cond):
+        return cond.dict
+
+    @classmethod
+    def load(self,dct):
+        cond = Conditions(dct['T'],dct['p'])
+        return cond
+        
+    def __repr__(self):
+        return str(self.dict)
+
+class Mixture(Serializable):
     """ Transient class representing the gas mixture. """
     
     def __init__(self,components,isocomp={}):
@@ -76,22 +127,16 @@ class Mixture:
         mix = Mixture(dct['components'],dct['isocomp'])
         return mix
 
-    @classmethod
-    def pack(cls,obj):
-        prov = VARSPACE['prov_backend']
-        dct = cls.dump(obj) 
-        buffer = prov.dump_to_string(dct)
-        hashval = prov.calc_hash_dict(dct)
-        return buffer, hashval
-    
-    @classmethod
-    def unpack(cls,buffer):
-        prov = VARSPACE['prov_backend']
-        dct = prov.load_from_string(buffer)
-        mix = cls.load(dct)
-        return mix
-    
     def __repr__(self):
-        return 'Mixture(%s)'%(
-            ', '.join('%s -> %f'%(comp,self.components[comp]) \
-                for comp in self.components))
+        #return 'Mixture(%s)'%(
+        #    ', '.join('%s -> %f'%(comp,self.components[comp]) \
+        #        for comp in self.components))
+        return str(self.components)
+                    
+class Container_Mixture(Container_HAPI2_stored):    
+    __contained_class__ = Mixture
+Container.register(Container_Mixture)
+
+class Container_Conditions(Container_HAPI2_stored):    
+    __contained_class__ = Conditions
+Container.register(Container_Conditions)
