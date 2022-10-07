@@ -393,7 +393,8 @@ class Linelist(models.Linelist):
     def transitions(cls):
         return relationship('Transition',secondary='linelist_vs_transition',lazy='dynamic',
             primaryjoin='linelist.c.id==foreign(linelist_vs_transition.c.linelist_id)',
-            secondaryjoin='transition.c.id==foreign(linelist_vs_transition.c.transition_id)')
+            secondaryjoin='transition.c.id==foreign(linelist_vs_transition.c.transition_id)',)
+            #back_populates='linelists')
     
     @property
     def isotopologues(self):
@@ -467,6 +468,7 @@ class Transition(models.Transition):
         return relationship('Linelist',secondary='linelist_vs_transition',
             primaryjoin='transition.c.id==foreign(linelist_vs_transition.c.transition_id)',
             secondaryjoin='linelist.c.id==foreign(linelist_vs_transition.c.linelist_id)',
+            #back_populates='transitions')
             overlaps="transitions")
 
 @searchable__alias
@@ -540,7 +542,8 @@ class MoleculeCategory(models.MoleculeCategory):
     def molecule_aliases(cls):
         return relationship('MoleculeAlias',secondary='molecule_alias_vs_molecule_category',
             primaryjoin='molecule_category.c.id==foreign(molecule_alias_vs_molecule_category.c.molecule_category_id)',
-            secondaryjoin='molecule_alias.c.id==foreign(molecule_alias_vs_molecule_category.c.molecule_alias_id)')
+            secondaryjoin='molecule_alias.c.id==foreign(molecule_alias_vs_molecule_category.c.molecule_alias_id)',)
+            #back_populates='molecules')
 
 @searchable__alias
 class MoleculeAlias(models.MoleculeAlias):
@@ -569,6 +572,7 @@ class MoleculeAlias(models.MoleculeAlias):
         return relationship('MoleculeCategory',secondary='molecule_alias_vs_molecule_category',
             primaryjoin='molecule_alias.c.id==foreign(molecule_alias_vs_molecule_category.c.molecule_alias_id)',
             secondaryjoin='molecule_category.c.id==foreign(molecule_alias_vs_molecule_category.c.molecule_category_id)',
+            #back_populates='molecule_aliases')
             overlaps="molecule_aliases")
 
 @searchable_by_alias

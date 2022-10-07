@@ -72,24 +72,16 @@ def LBL_CALC(
         linelist,
         mixture,
         conditions,
-        pfunction_source=models.Source('tips-3'),
-        profile=hapi.PROFILE_VOIGT,
-        calcpars=hapi.calculateProfileParametersVoigt,
-        lbl_backend=numba,
-        options={},
+        pfunction_source,
+        profile,
+        calcpars,
+        lbl_backend,
+        options,
     ):
     
-    #print('\nlinelist.molecules>>>',linelist.molecules)
-    #print('\nlinelist.isotopologues>>>',linelist.isotopologues)
-    
-    #print('\nmixture>>>',mixture)
-    #print('\nmixture.isocomp>>>',json.dumps(mixture.isocomp,indent=3))
-    #print('\nconditions>>>',conditions)
-
     # Calculate abscoefs for each molecule separately to avoid the "self" bug.
     
     Environment = conditions.dict
-    #print('\nEnvironment>>>',Environment)
       
     wngrid = get_wavenumber_grid(options,linelist)
     xsc = np.zeros(len(wngrid))
@@ -115,19 +107,11 @@ def LBL_CALC(
                 
         molname = mixture.get_component_name(mol)
         isos = set(linelist_isos).intersection(mol.isotopologues)
-        
-        #print('====================')
-        #print('mol>>>',mol)
-        #print('isos>>>',isos)
-        #print('====================')
-        
+               
         Components = create_components(isos,mixture)
         SourceTables = '~scratch'
-        
-        #print('Components>>>',Components)
-        
+                
         Diluent = create_diluent(molname,mixture)
-        #print('\nDiluent>>>',Diluent)
         
         isoals = reduce(lambda x,y:x+y,[iso.aliases for iso in isos])
         isoal_ids = [al.id for al in isoals]
@@ -135,8 +119,6 @@ def LBL_CALC(
             models.Transition.isotopologue_alias_id.in_(isoal_ids))
         storage2cache(SourceTables,query=query)
         
-        #print('keys>>>',SourceTables,hapi.LOCAL_TABLE_CACHE[SourceTables]['data'].keys())
-
         _,xsc_ = lbl_backend.absorptionCoefficient_Generic(**options_,
             Components=Components,SourceTables=SourceTables,Diluent=Diluent,
             profile=profile,calcpars=calcpars,WavenumberGrid=wngrid)
