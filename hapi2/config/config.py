@@ -24,7 +24,7 @@ SETTINGS_DEFAULT = {
     'api_version':'v2',
     'display_fetch_url':False,
     'proxy':None,
-    'host': 'http://localhost:8000',
+    'host': 'https://hitran.org',
     'tmpdir': '~tmp',
     'api_key': None,
     'info': 'server_info.json', # ?
