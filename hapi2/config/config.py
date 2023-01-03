@@ -73,28 +73,34 @@ def save_config(config=None):
 def print_settings():
     print(json.dumps(SETTINGS,indent=2))
 
+
+def create_config_file(path=CONFIG_FILE):
+    """Create a default config file.
+
+    :param path: Path to the config file. Defaults to `CONFIG_FILE` name in
+        the current working directory.
+    """
+    # Create and write default config file.
+    with open(path, 'w') as f:
+        json.dump(SETTINGS_DEFAULT, f, indent=3)
+
+
 def read_local_config(config=None):
     """
     Update the settings dictionary.
+
+    :param config: Path to the config file. If not specified, the current working
+        directory is searched for `CONFIG_FILE`.
     """
     if not config:
         config = CONFIG_FILE
 
     if not os.path.isfile(config):
-        print('Local configuration file (%s) not found.'%config)
-        
-        # Create and write default config file.
-        with open(CONFIG_FILE,'w') as f:
-            #print(json.dumps(SETTINGS_DEFAULT,indent=3))
-            json.dump(SETTINGS_DEFAULT,f,indent=3)
-        
-        if SETTINGS_DEFAULT['api_key'] is None:
-            print('WARNING: api key is empty. To use HAPI2, '
-                'get the api key from your '
-                'user profile on %s'%SETTINGS_DEFAULT['host'])        
+        raise FileNotFoundError(
+            f'Local configuration file {config} not found. You may create one using `hapi2.config.create_config_file()`')
 
     # Read configuration file and override default settings.
-    with open(CONFIG_FILE) as f:
+    with open(config) as f:
         dct = json.load(f)
         
     SETTINGS.update(dct)
