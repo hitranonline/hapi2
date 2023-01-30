@@ -432,7 +432,7 @@ def absorptionCoefficient_Voigt(Components=None,SourceTables=None,partitionFunct
                  OmegaWing=OmegaWing,OmegaWingHW=OmegaWingHW,reflect=False,
                  T=Environment['T'],Tref=296.0, TDoppler=TDoppler,
                  p=Environment['p'],pref=1.0,
-                 partsum=PYTIPS,
+                 partsum=partitionFunction,
                  profile=1,
                  test=False,
                  NCORES=NCORES)
@@ -569,7 +569,7 @@ def absorptionCoefficient_Lorentz(Components=None,SourceTables=None,partitionFun
                  OmegaWing=OmegaWing,OmegaWingHW=OmegaWingHW,reflect=False,
                  T=Environment['T'],Tref=296.0,
                  p=Environment['p'],pref=1.0,
-                 partsum=PYTIPS,
+                 partsum=partitionFunction,
                  profile=2,
                  test=False,
                  NCORES=NCORES)
@@ -702,7 +702,7 @@ def absorptionCoefficient_Doppler(Components=None,SourceTables=None,partitionFun
                  OmegaWing=OmegaWing,OmegaWingHW=OmegaWingHW,reflect=False,
                  T=Environment['T'],Tref=296.0, TDoppler=None,
                  p=Environment['p'],pref=1.0,
-                 partsum=PYTIPS,
+                 partsum=partitionFunction,
                  profile=3,
                  test=False,
                  NCORES=NCORES)
@@ -756,7 +756,7 @@ def ABSCOEF_FAST(NLINES,TABLE_NAME,ISOS,DILUENT,
     DILUENT: List of tuples containing broadening agents:
              E.g.: [('air',0.3),('self',0.7)]
     """
-    
+        
     # Do some type conversions for safety reasons (except for the arrays from HAPI)
     NLINES = np.int64(NLINES)
     OmegaWing = np.float64(OmegaWing)
@@ -801,6 +801,7 @@ def ABSCOEF_FAST(NLINES,TABLE_NAME,ISOS,DILUENT,
     # Get Lorentzian broadening parameters and account for their T- and p-dependences
     GAMMA_L = np.zeros(NLINES)
     for broadener,fraction in DILUENT:
+        
         GAMMA_BR = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['gamma_%s'%broadener]
         if broadener=='self': # !!! THIS SHOULD BE REDONE !!!
             N_BR = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['n_air']
@@ -808,7 +809,7 @@ def ABSCOEF_FAST(NLINES,TABLE_NAME,ISOS,DILUENT,
             N_BR = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['n_%s'%broadener.lower()]
         GAMMA_BR = ENV_DEPENDENCE_GAMMA0(NLINES,GAMMA_BR,T,Tref,p,pref,N_BR)
         GAMMA_L += GAMMA_BR*fraction
-        
+
     # Get shifting parameters and account for their T- and p-dependences
     DELTA = np.zeros(NLINES)
     for broadener,fraction in DILUENT:
@@ -820,7 +821,7 @@ def ABSCOEF_FAST(NLINES,TABLE_NAME,ISOS,DILUENT,
         DELTA += DELTA_BR*fraction
         
     #print('ABSCOEF_FAST: %f sec elapsed for transforming parameters'%(time()-t))
-        
+
     t = time()
     if not test:
         #print('Omegas',type(Omegas),Omegas.dtype,
@@ -880,12 +881,8 @@ def CALC_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES
    
     number_of_points = len(Omegas)
     Xsect = np.zeros(number_of_points,dtype=np.float64)
-    
-    #print('<<<<<<<<<<< CALC_>>>>>>>>>>>>>')
-    #print('number_of_points: '); print(number_of_points)
-                         
+                             
     # loop through line centers (single stream)
-    #for RowID in range(NLINES):
     for RowID in prange(NLINES): # vectorizing the loop    
         
         # get basic line parameters (lower level)
@@ -897,18 +894,16 @@ def CALC_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES
         Gamma0 = GAMMA_L[RowID]
         GammaD = GAMMA_D[RowID]
         Shift0 = DELTA[RowID]
-        
-        #   get final wing of the line according to Gamma0, OmegaWingHW and OmegaWing
-        #OmegaWingF = max(OmegaWing,OmegaWingHW*Gamma0,OmegaWingHW*GammaD)
+
+        # get final wing of the line according to Gamma0, OmegaWingHW and OmegaWing
         OmegaWingF = np.max(np.array([OmegaWing,OmegaWingHW*Gamma0,OmegaWingHW*GammaD]))
-        
+
         # check if the line calculation range overlaps with the given global calculation range
         if LineCenterDB+Shift0+OmegaWingF<OmegaRange[0] or LineCenterDB+Shift0-OmegaWingF>OmegaRange[1]:
-            #print('1>>>>>')
             continue
         
         LineIntensity = LineIntensityDB
-        
+
         BoundIndexLower = np.searchsorted(Omegas,LineCenterDB-OmegaWingF,side='right') # side='right' makes new code consistent with old HAPI
         BoundIndexUpper = np.searchsorted(Omegas,LineCenterDB+OmegaWingF,side='right') # side='right' makes new code consistent with old HAPI
         if reflect: # calculate only half of the profile
@@ -919,30 +914,7 @@ def CALC_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES
         
         omega_vals = Omegas[BoundIndexLower:BoundIndexUpper]
         lineshape_vals = np.zeros(BoundIndexUpper-BoundIndexLower)
-        
-        #print('2>>>>>')
-        
-        #print(
-        #    'RowID>>',RowID,'LineCenterDB: ',LineCenterDB,'\n',
-        #    'RowID>>',RowID,'LineIntensityDB: ',LineIntensityDB,'\n',
-        #    'RowID>>',RowID,'LowerStateEnergyDB: ',LowerStateEnergyDB,'\n',
-        #    'RowID>>',RowID,'MoleculeNumberDB: ',MoleculeNumberDB,'\n',
-        #    'RowID>>',RowID,'IsoNumberDB: ',IsoNumberDB,'\n',
-        #    'RowID>>',RowID,'Gamma0: ',Gamma0,'\n',
-        #    'RowID>>',RowID,'GammaD: ',GammaD,'\n',
-        #    'RowID>>',RowID,'Shift0: ',Shift0,'\n',
-        #    'RowID>>',RowID,'OmegaWingF: ',OmegaWingF,'\n',
-        #    'RowID>>',RowID,'BoundIndexLower: ',BoundIndexLower,'\n',
-        #    'RowID>>',RowID,'BoundIndexUpper: ',BoundIndexUpper,'\n',
-        #    'RowID>>',RowID,'min(Omegas): ',np.min(Omegas),'max(Omegas): ',np.max(Omegas),'\n',
-        #    'RowID>>',RowID,'LineCenterDB-OmegaWingF: ',LineCenterDB-OmegaWingF,'\n',
-        #    'RowID>>',RowID,'LineCenterDB+OmegaWingF: ',LineCenterDB+OmegaWingF,'\n',
-        #    'RowID>>',RowID,'len(omega_vals): ',len(omega_vals),'\n',
-        #    'RowID>>',RowID,'len(lineshape_vals): ',len(lineshape_vals),'\n',
-        #)
-        
-        #lineshape_vals[BoundIndexMiddl:] = PROFILE(LineCenterDB,GammaD,Gamma0,0.0,Shift0,0.0,omega_vals[BoundIndexMiddl:])[0] # numba version
-        #print('starting profile calculation')
+
         if profile==1:
             lineshape_vals[BoundIndexMiddl:] = PROFILE_SDVOIGT(LineCenterDB,GammaD,Gamma0,0.0,Shift0,0.0,omega_vals[BoundIndexMiddl:])[0] # numba version
         elif profile==2:
@@ -951,16 +923,14 @@ def CALC_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES
             lineshape_vals[BoundIndexMiddl:] = PROFILE_DOPPLER(LineCenterDB,GammaD,omega_vals[BoundIndexMiddl:]) # numba version
         else:
             print('  ~~ UNKNOWN PROFILE NUMBER')
-        #print('done profile calculation')
-            
+                        
         if reflect:
             #n = len(lineshape_vals); i = n//2; lineshape_vals[:i] = lineshape_vals[:i-1+n%2:-1] # THIS NEEDS DEBUGGING; ATTENTION: n/2 gives float result in Python 3!!! use the integer division operator
             n = len(lineshape_vals); lineshape_vals[:BoundIndexMiddl]=lineshape_vals[n-1:n-BoundIndexMiddl-1:-1] 
         # reflect line shape values if they have been calculated on a half-grid
-        
+
         Xsect[BoundIndexLower:BoundIndexUpper] += LineIntensity * lineshape_vals
-    
-    #return Omegas,Xsect
+        
     return Xsect
 
 @njit(parallel=PARALLEL,fastmath=FASTMATH)
