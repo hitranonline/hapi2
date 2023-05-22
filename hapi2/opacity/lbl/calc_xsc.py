@@ -9,7 +9,6 @@ from sqlalchemy import func
 from hapi2.config import VARSPACE
 from hapi2.db.sqlalchemy.legacy import storage2cache
 
-
 from . import numba
 
 provenance = VARSPACE['prov_backend']
@@ -96,6 +95,7 @@ def LBL_CALC(
     options_.update(dict(
         partitionFunction=pfunc,
         Environment=Environment,
+        WavenumberGrid=np.array(wngrid),
     ))
 
     #print('\noptions_',options_)
@@ -121,7 +121,7 @@ def LBL_CALC(
         
         _,xsc_ = lbl_backend.absorptionCoefficient_Generic(**options_,
             Components=Components,SourceTables=SourceTables,Diluent=Diluent,
-            profile=profile,calcpars=calcpars,WavenumberGrid=wngrid)
+            profile=profile,calcpars=calcpars)
         
         xsc += xsc_
 
