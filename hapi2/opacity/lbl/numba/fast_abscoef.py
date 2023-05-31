@@ -99,7 +99,7 @@ def generate_indexes(ISO):
     ISO_INDEX = sorted(ISO_INDEX)
     
     # Create a molecule index
-    MOL_INDEX = np.full(ISO_INDEX[-1][0]+1,fill_value=-1,dtype=np.int)
+    MOL_INDEX = np.full(ISO_INDEX[-1][0]+1,fill_value=-1,dtype=int)
     for cnt,INDEX_LINE in enumerate(ISO_INDEX):
         M = INDEX_LINE[0]
         if MOL_INDEX[M]==-1: MOL_INDEX[M] = cnt
