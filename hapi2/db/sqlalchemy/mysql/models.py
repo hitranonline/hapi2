@@ -34,8 +34,8 @@ class CrossSectionData(models.CrossSectionData, models.CRUD_Generic, Base):
 
     id = Column(INTTYPE,primary_key=True)
     header_id = Column('header_id',INTTYPE,nullable=IS_NULLABLE) # ,ForeignKey('cross_section.id')
-    __nu__ = Column('__nu__',BLOBTYPE)
-    __xsc__ = Column('__xsc__',BLOBTYPE)
+    b__nu__ = Column('b__nu__',BLOBTYPE)
+    b__xsc__ = Column('b__xsc__',BLOBTYPE)
 
     __table_args__ = (
         {'mysql_engine':table_engine},
@@ -76,8 +76,8 @@ class CIACrossSectionData(models.CIACrossSectionData, models.CRUD_Generic, Base)
 
     id = Column(INTTYPE,primary_key=True)
     header_id = Column('header_id',INTTYPE,nullable=IS_NULLABLE) # ,ForeignKey('cross_section.id')
-    __nu__ = Column('__nu__',BLOBTYPE)
-    __xsc__ = Column('__xsc__',BLOBTYPE)
+    b__nu__ = Column('b__nu__',BLOBTYPE)
+    b__xsc__ = Column('b__xsc__',BLOBTYPE)
 
     __table_args__ = (
         {'mysql_engine':table_engine},

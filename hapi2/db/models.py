@@ -199,11 +199,10 @@ class PartitionFunction:
         ('id',                     {'type':int}),
         ('isotopologue_alias_id',  {'type':int}),
         ('source_alias_id',        {'type':int}),
-        #('Q296',                   {'type':float}),
         ('tmin',                   {'type':float}),
         ('tmax',                   {'type':float}),
-        ('__TT__',                 {'type':str}),
-        ('__QQ__',                 {'type':str}),
+        #('b__TT__',                 {'type':str}),
+        #('b__QQ__',                 {'type':str}),
         ('json',                   {'type':str}),
         ('filename',               {'type':str}),
         ('comment',                {'type':str}),
@@ -264,8 +263,8 @@ class PartitionFunction:
     def pack(cls,obj):
         prov = VARSPACE['prov_backend']
         dct = obj.dump()
-        dct['__QQ__'] = binascii.hexlify(dct['__QQ__']).decode(ENCODING)
-        dct['__TT__'] = binascii.hexlify(dct['__TT__']).decode(ENCODING)
+        dct['b__QQ__'] = binascii.hexlify(dct['b__QQ__']).decode(ENCODING)
+        dct['b__TT__'] = binascii.hexlify(dct['b__TT__']).decode(ENCODING)
         buffer = prov.dump_to_string(dct)
         hashval = prov.calc_hash_dict(dct)
         return buffer, hashval
@@ -274,8 +273,8 @@ class PartitionFunction:
     def unpack(cls,buffer):
         prov = VARSPACE['prov_backend']
         dct = prov.load_from_string(buffer)
-        dct['__QQ__'] = binascii.unhexlify(dct['__QQ__'])
-        dct['__TT__'] = binascii.unhexlify(dct['__TT__'])  
+        dct['b__QQ__'] = binascii.unhexlify(dct['b__QQ__'])
+        dct['b__TT__'] = binascii.unhexlify(dct['b__TT__'])  
         return cls.load(dct)
 
     @property
@@ -306,13 +305,13 @@ class PartitionFunction:
         return Qt
         
     def set_data(self,TT,QQ):
-        self.__TT__ = compress_zlib(pack_double(TT))
-        self.__QQ__ = compress_zlib(pack_double(QQ))
+        self.b__TT__ = compress_zlib(pack_double(TT))
+        self.b__QQ__ = compress_zlib(pack_double(QQ))
 
     def get_data(self):
         TT = None; QQ = None
-        if self.__TT__: TT = np.array(unpack_double(decompress_zlib(self.__TT__)))
-        if self.__QQ__: QQ = np.array(unpack_double(decompress_zlib(self.__QQ__)))
+        if self.b__TT__: TT = np.array(unpack_double(decompress_zlib(self.b__TT__)))
+        if self.b__QQ__: QQ = np.array(unpack_double(decompress_zlib(self.b__QQ__)))
         return TT,QQ
 
     def __str__(self):
@@ -336,7 +335,7 @@ class CrossSectionData:
         if xsc is not None: self.pack_xsc(xsc)
     
     def unpack_nu(self):
-        data_nu = self.__nu__
+        data_nu = self.b__nu__
         if not data_nu and \
            self.header.numin and \
            self.header.numax and \
@@ -351,7 +350,7 @@ class CrossSectionData:
                 return None
 
     def unpack_xsc(self):
-        data_xsc = self.__xsc__
+        data_xsc = self.b__xsc__
         if not data_xsc:
             print('xsc is empty')
             return None
@@ -359,10 +358,10 @@ class CrossSectionData:
             return np.array(unpack_double(decompress_zlib(data_xsc)))
 
     def pack_nu(self,nu):
-        self.__nu__ = compress_zlib(pack_double(nu))
+        self.b__nu__ = compress_zlib(pack_double(nu))
 
     def pack_xsc(self,xsc):
-        self.__xsc__ = compress_zlib(pack_double(xsc))
+        self.b__xsc__ = compress_zlib(pack_double(xsc))
 
 class CrossSection:
 

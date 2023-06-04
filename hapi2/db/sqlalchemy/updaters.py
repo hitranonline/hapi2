@@ -12,12 +12,12 @@ def get_first_available_(cls,col,local=True):
     
     if local:
         stmt = sql.select(
-            [sql.func.min(getattr(cls.__table__.c,col))]
+            sql.func.min(getattr(cls.__table__.c,col))
         )
         d_ = -1
     else:
         stmt = sql.select(
-            [sql.func.max(getattr(cls.__table__.c,col))]
+            sql.func.max(getattr(cls.__table__.c,col))
         )
         d_ = 1
     res = session.execute(stmt)
@@ -113,7 +113,7 @@ def insert_transition_dicts_core_(cls,TRANS_DICTS,linelist_id,local,initial=Fals
     isoal_names = list(ISOTOPOLOGUE_ALIASES.keys())
     
     # lookup in the database
-    DB_LOOKUP = session.execute(sql.select([
+    DB_LOOKUP = session.execute(sql.select(*[
         IsotopologueAlias.__table__.c.alias,
         IsotopologueAlias.__table__.c.id,
     ]).where(IsotopologueAlias.__table__.c.alias.in_ (isoal_names)))
@@ -159,7 +159,7 @@ def insert_transition_dicts_core_(cls,TRANS_DICTS,linelist_id,local,initial=Fals
         for i,ids_chunk in enumerate(chunks(ids_for_lookup)):
             n_chunk = len(ids_chunk)
             stmt = sql.select(
-                    [Transition.__table__.c.id, 
+                    *[Transition.__table__.c.id, 
                     Transition.__table__.c.extra]
                 ).\
                 where(
@@ -224,44 +224,7 @@ def insert_transition_dicts_core_(cls,TRANS_DICTS,linelist_id,local,initial=Fals
         LLST_VS_TRANS.append(llst_map_item)
                 
     # -- Step 5.3: FINALLY ADD ITEMS !!!  --
-    
-    #print('==================================')
-    #print('ISOAL_ITEM_DICTS (new)>>>')
-    #print('==================================')
-    #print(json.dumps(ISOAL_ITEM_DICTS,indent=3))
-    #
-    #print('==================================')
-    #print('ISOAL_DICTS (new)>>>')
-    #print('==================================')
-    #print(json.dumps(ISOAL_DICTS,indent=3))
-    #
-    #print('==================================')
-    #print('ISOTOPOLOGUE_ALIASES (new+exist)>>>')
-    #print('==================================')
-    #print(json.dumps(ISOTOPOLOGUE_ALIASES,indent=3))     
-    #
-    #print('==================================')
-    #print('TRANS_ITEM_DICTS_1A_1B>>>')
-    #print('==================================')
-    #print(json.dumps(TRANS_ITEM_DICTS_1A_1B,indent=3))
-    #
-    #print('==================================')
-    #print('TRANS_DICTS_1A_1B>>>')
-    #print('==================================')
-    #print(json.dumps(TRANS_DICTS_1A_1B,indent=3))
-    #
-    #print('==================================')
-    #print('TRANS_DICTS_2>>>')
-    #print('==================================')
-    #print(json.dumps(TRANS_DICTS_2,indent=3))
-    #
-    #print('==================================')
-    #print('LLST_VS_TRANS>>>')
-    #print('==================================')
-    #print(json.dumps(LLST_VS_TRANS,indent=3))
-    
-    #raise Exception # debug barrier
-    
+        
     # ---> add new isotopologue aliases
     if ISOAL_DICTS: 
         session.execute(IsotopologueAlias.__table__.insert(),ISOAL_DICTS) 
@@ -314,9 +277,8 @@ def get_transitions_by_ids(ids):
     """
     return []
 
-#NBULK = 300000 # EACH BULK CORRESPONDS TO SEPARATE TRANSACTION
 NBULK = 150000 # EACH BULK CORRESPONDS TO SEPARATE TRANSACTION
-#def __insert_transitions_core__(models,header,llst_name='DEFAULT'):   DELETE THIS LINE !!!!!!!
+
 def __insert_transitions_core__(cls,stream,local=True,llst_name='default',**argv):
     """
     Update and commit exclusively for cross-section headers. Will not work for other types of objects!!!
@@ -340,11 +302,7 @@ def __insert_transitions_core__(cls,stream,local=True,llst_name='default',**argv
 
         print('Total lines processed: %d'%ntot)
         print('==================================')
-                
-    #return models.Linelist(llst_name).transitions # lazy; 
-    # ATTENTION!!! This can return more lines than was downloaded
-    # because LineList was decided not to be cleaned up!
-    
+                    
     return get_transitions_by_ids(ids) # BETTER WAY OF RETURNING LINES!! (TODO)
 
 def __insert_base_items_core__(cls,ITEM_DICTS,local=True):
@@ -412,7 +370,7 @@ def __insert_base_items_core__(cls,ITEM_DICTS,local=True):
     for ids_chunk in chunks(ids_for_lookup):
         n_chunk = len(ids_chunk)        
         args = [cls.__table__.c.id,]
-        stmt = sql.select(args).\
+        stmt = sql.select(*args).\
             where(
                 cls.__table__.c.id.in_(ids_chunk)
             ) 
@@ -435,16 +393,7 @@ def __insert_base_items_core__(cls,ITEM_DICTS,local=True):
     # ===================================================================================
     
     # -- Step 5.1: create item objects for groups 1A and 1B --
-            
-    ###for item_dict in ITEM_DICTS_1A_1B:
-    ###    
-    ###   # Rename id_ to id for the insert operation
-    ###   item_dict['id'] = item_dict.pop('id_')
-                                                                       
-    # -- Step 5.3: FINALLY ADD ITEMS !!!  --
-        
-    #print('ITEM_DICTS_1A_1B>>>',ITEM_DICTS_1A_1B)
-                
+                            
     # ---> add new transitions (groups 1A and 1B)
     if ITEM_DICTS_1A_1B:
         session.execute(cls.__table__.insert(),ITEM_DICTS_1A_1B) 
@@ -521,48 +470,31 @@ def __insert_alias_items_core__(cls,ITEM_DICTS,local=True):
 
     for vals_chunk in chunks(keys_for_lookup):
         n_chunk = len(vals_chunk)        
-        #args = [
-        #    cls.__table__.c.id,
-        #    cls.__table__.c.alias,
-        #]
-        #stmt = sql.select(args).\
-        stmt = sql.select([getattr(cls.__table__.c,key) for key,_ in cls.__keys__]).\
+        stmt = sql.select(*[getattr(cls.__table__.c,key) for key,_ in cls.__keys__]).\
             where(
-                #cls.__table__.c.alias.in_(vals_chunk)
                 sql.func.lower(cls.__table__.c.alias).in_(vals_chunk)
             )
         total_read += n_chunk            
         DB_LOOKUP += session.execute(stmt)
-        
-    #print('stmt>>>',stmt)
-    #print('DB_LOOKUP>>>',DB_LOOKUP)
-                    
+                            
     # Split the initial items into two major categories.
 
     ids = []
 
     ITEM_DICTS_2 = []
     result_keys = set()
-    #print('list(ITEM_DICTS_LOOKUP.keys())',ITEM_DICTS_LOOKUP.keys())
     for item_ in DB_LOOKUP:
-        id_ = item_['id']
-        key = item_['alias'].lower()
+        item_dict = item_._asdict()
+        id_ = item_dict['id']
+        key = item_dict['alias'].lower()
         item = ITEM_DICTS_LOOKUP[key]
-        tmp = dict(item_); tmp.update(item); item.update(tmp) # ????
-        #item.update(item_)    # DELETE
-        #print('item>>>',item)
+        item_dict.update(item); item.update(item_dict) # ????
         ids.append(id_)
         ITEM_DICTS_2.append(item)
         result_keys.add(key)
             
     lookup_keys = set(ITEM_DICTS_LOOKUP.keys())
-    #print('lookup_keys>>>',lookup_keys)
-    #print('result_keys>>>',result_keys)
     lookup_keys_1a_1b = lookup_keys-result_keys
-    #print('lookup_keys_1a_1b>>>',lookup_keys_1a_1b)
-
-    #print('ITEM_DICTS_2 RAW>>>',ITEM_DICTS_2)
-    #print('ITEM_DICTS_2>>>',json.dumps([{b:e[b] for b in e if b not in ['__parent__','__parents__']} for e in ITEM_DICTS_2],indent=3))
 
     ITEM_DICTS_1A_1B = []
     for key in lookup_keys_1a_1b:
@@ -571,13 +503,7 @@ def __insert_alias_items_core__(cls,ITEM_DICTS,local=True):
         ids.append(id)
         id += 1
         ITEM_DICTS_1A_1B.append(item)
-    
-    #print('ITEM_DICTS_2>>>',json.dumps([{b:e[b] for b in e if b not in ['__parent__','__parents__']} for e in ITEM_DICTS_2],indent=3))
-
-    #if not update:
-    #    ITEM_DICTS_1A_1B += ITEM_DICTS_2
-    #    ITEM_DICTS_2 = []
-    
+        
     # Groups 1A and 1B are similar in the way data are inserted:
     #   -> need to generate item objects.    
     # In Group 2, the data already in the db.
@@ -587,24 +513,15 @@ def __insert_alias_items_core__(cls,ITEM_DICTS,local=True):
     # ===================================================================================
     
     # -- Step 5.1: create item objects for groups 1A and 1B --
-            
-    ###for item_dict in ITEM_DICTS_1A_1B:
-    ###    
-    ###   # Rename id_ to id for the insert operation
-    ###   item_dict['id'] = item_dict.pop('id_')
-                                                                       
+                                                                                   
     # -- Step 5.3: FINALLY ADD ITEMS !!!  --
                 
     # ---> add new transitions (groups 1A and 1B)
     if ITEM_DICTS_1A_1B:
-        #print('ITEM_DICTS_1A_1B>>>',json.dumps([{b:e[b] for b in e if b not in ['__parent__','__parents__']} for e in ITEM_DICTS_1A_1B],indent=3))
-        #print('ITEM_DICTS_1A_1B>>>',ITEM_DICTS_1A_1B)
         session.execute(cls.__table__.insert(),ITEM_DICTS_1A_1B) 
         
     # ---> update existing transitions
     if ITEM_DICTS_2:
-        #print('ITEM_DICTS_2>>>',json.dumps([{b:e[b] for b in e if b not in ['__parent__','__parents__']} for e in ITEM_DICTS_2],indent=3))
-        #print('ITEM_DICTS_2>>>',ITEM_DICTS_2)
         # THE RIGHT WAY IS MULTIPLE WHERES, INSTEAD OF USING "AND" OPERATION!!!
         insert_values = {pname:bindparam(pname) for pname,_ in cls.__keys__}
         stmt = cls.__table__.update().\
@@ -651,18 +568,14 @@ def __update_and_commit_core__(BASE_CLS,STREAM,REFS,BACKREFS,local=True):
     for ref in REFS:
         dct = REFS[ref]
         dct['items_dict'] = {}
-        #dct['items_list'] = []
 
     for backref in BACKREFS:
         dct = BACKREFS[backref]
         dct['items_dict'] = {}
-        #dct['items_list'] = []
 
-    #for item in BASE_ITEMS:
     for nitem,item in enumerate(BASE_ITEMS):
         
         # collect refs items
-        #for ref in REFS:
         for nref,ref in enumerate(REFS):
             dct = REFS[ref]
             ref_item = item[ref]
@@ -676,7 +589,6 @@ def __update_and_commit_core__(BASE_CLS,STREAM,REFS,BACKREFS,local=True):
             else:
                 item['__parents__'][ref] = ref_item
             dct['items_dict'][ref_item['alias']] = ref_item
-            #dct['items_list'].append(ref_item)
         
         # collect backrefs items
         for backref in BACKREFS:
@@ -684,24 +596,17 @@ def __update_and_commit_core__(BASE_CLS,STREAM,REFS,BACKREFS,local=True):
             for backref_item in item[backref]:
                 backref_item['__parent__'] = item
                 dct['items_dict'][backref_item['alias']] = backref_item
-                #dct['items_list'].append(backref_item)
                 
     if refs_flag:                    
         
         # insert REFS_ITEMS into the database
         for ref in REFS:
             dct = REFS[ref]
-            #print('dct[items_dict] BEFORE>>>',dct['items_dict'])
             __insert_alias_items_core__(cls=getattr(db_backend.models,dct['class']),
-                #ITEM_DICTS=dct['items_list'],local=local)    
                 ITEM_DICTS=[dct['items_dict'][r] for r in dct['items_dict']],local=local)    
-            #print('dct[items_dict] AFTER>>>',dct['items_dict'])
                 
         # connect BASE_ITEMS with items REFS_ITEMS
         for item in BASE_ITEMS:
-            #print('item[__parents__]>>>',item['__parents__'])
-            #print('item>>>',item)
-            #print('dct[items_list]>>>',dct['items_list'])
             for ref in item['__parents__']:
                 dct = REFS[ref]
                 ref_item = item['__parents__'][ref]                
@@ -718,7 +623,6 @@ def __update_and_commit_core__(BASE_CLS,STREAM,REFS,BACKREFS,local=True):
         # connect BACKREFS_ITEMS with items from BASE_ITEMS
         for backref in BACKREFS: 
             dct = BACKREFS[backref]
-            #for backref_item in dct['items_list']:
             for alias in dct['items_dict']:
                 backref_item = dct['items_dict'][alias]
                 item = backref_item['__parent__']
@@ -730,7 +634,6 @@ def __update_and_commit_core__(BASE_CLS,STREAM,REFS,BACKREFS,local=True):
         for backref in BACKREFS:
             dct = BACKREFS[backref]
             __insert_alias_items_core__(cls=getattr(db_backend.models,dct['class']),
-                #ITEM_DICTS=dct['items_list'],local=local)
                 ITEM_DICTS=[dct['items_dict'][r] for r in dct['items_dict']],local=local)
             
     #return ids_base

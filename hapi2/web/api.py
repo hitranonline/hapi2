@@ -497,7 +497,6 @@ def get_query_header_from_hapi(isos):
         'id': None,                  
         'isotopologue_alias': None,
         'source_alias': None,
-        #'Q296': None,
         'tmin': None,
         'tmax': None,
         'json': None,
@@ -519,7 +518,6 @@ def get_query_header_from_hapi(isos):
             ITEM['id'] = get_local_pfunc_id(tips_version,iso)
             ITEM['isotopologue_alias'] = 'HITRAN-iso-%d'%iso.id
             ITEM['source_alias'] = TIPS_LOOKUP['SOURCE_DOI']
-            #ITEM['Q296'] = get_local_pfunc_q296(TT,QQ)
             ITEM['tmin'] = min(TT)
             ITEM['tmax'] = max(TT)
             ITEM['json'] = json.dumps({'TIPS_VERSION':tips_version})

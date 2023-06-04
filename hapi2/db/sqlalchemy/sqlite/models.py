@@ -32,15 +32,14 @@ class PartitionFunction(models.PartitionFunction, models.CRUD_Generic, Base):
     id = Column(INTTYPE,primary_key=True)
     isotopologue_alias_id = Column('isotopologue_alias_id',INTTYPE,nullable=IS_NULLABLE) # ,ForeignKey('molecule_alias.id')
     source_alias_id = Column('source_alias_id',INTTYPE,nullable=IS_NULLABLE) # ,ForeignKey('source_alias.id')
-    #Q296 = Column('Q296',DOUBLETYPE)
     tmin = Column('tmin',DOUBLETYPE)
     tmax = Column('tmax',DOUBLETYPE)
-    comment = Column('format',VARCHARTYPE(255))
+    comment = Column('comment',VARCHARTYPE(255))
     status = Column('status',VARCHARTYPE(255))
     json = Column('json',VARCHARTYPE(255)) # auxiliary field containing non-schema information
     
-    __TT__ = Column('__TT__',BLOBTYPE)
-    __QQ__ = Column('__QQ__',BLOBTYPE)
+    b__TT__ = Column('b__TT__',BLOBTYPE)
+    b__QQ__ = Column('b__QQ__',BLOBTYPE)
 
     # additional HITRANonline-compliant parameters
     filename = Column('filename',VARCHARTYPE(255),nullable=IS_NULLABLE) # HITRANonline filename
@@ -53,8 +52,8 @@ class CrossSectionData(models.CrossSectionData, models.CRUD_Generic, Base):
 
     id = Column(INTTYPE,primary_key=True)
     header_id = Column('header_id',INTTYPE,nullable=IS_NULLABLE) # ,ForeignKey('cross_section.id')
-    __nu__ = Column('__nu__',BLOBTYPE)
-    __xsc__ = Column('__xsc__',BLOBTYPE)
+    b__nu__ = Column('b__nu__',BLOBTYPE)
+    b__xsc__ = Column('b__xsc__',BLOBTYPE)
 
     __table_args__ = (
     )
@@ -93,8 +92,8 @@ class CIACrossSectionData(models.CIACrossSectionData, models.CRUD_Generic, Base)
 
     id = Column(INTTYPE,primary_key=True)
     header_id = Column('header_id',INTTYPE,nullable=IS_NULLABLE) # ,ForeignKey('cross_section.id')
-    __nu__ = Column('__nu__',BLOBTYPE)
-    __xsc__ = Column('__xsc__',BLOBTYPE)
+    b__nu__ = Column('b__nu__',BLOBTYPE)
+    b__xsc__ = Column('b__xsc__',BLOBTYPE)
 
     __table_args__ = (
     )
