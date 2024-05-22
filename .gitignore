@@ -10,6 +10,7 @@
 build/
 dist/
 hapi2.egg-info/
+hitran_api2.egg-info/
 
 showcase/local
 showcase/.ipynb_checkpoints/

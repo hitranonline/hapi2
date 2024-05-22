@@ -1,7 +1,7 @@
 from setuptools import find_packages, setup
 
 setup(
-    name="hapi2",
+    name="hitran-api2",
     version="0.1",
     author="Roman Kochanov",
     author_email="",
