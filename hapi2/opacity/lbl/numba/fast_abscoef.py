@@ -20,11 +20,121 @@ from numpy import sort as npsort
 #PROFILE = PROFILE_VOIGT # HAPI version
 PROFILE = PROFILE_SDVOIGT # numba version
 
+from .pCqSDHC_ import pcqsdhc as pcqsdhc_new, PROFILE_HT
+
+CACHE = False
+
+import warnings
+from functools import wraps
+from threading import Lock
+
+from numba.core.extending import intrinsic
+from numba import types
+from numba.core import cgutils
+from numba.core.typing.arraydecl import get_array_index_type
+from numba.extending import lower_builtin, type_callable
+from numba.np.arrayobj import basic_indexing, make_array, normalize_indices
+
+def atomic_rmw(context, builder, op, arrayty, val, ptr):
+    assert arrayty.aligned  # We probably have to have aligned arrays.
+    dataval = context.get_value_as_data(builder, arrayty.dtype, val)
+    return builder.atomic_rmw(op, ptr, dataval, "monotonic")
+
+# The global lock used to protect atomic operations when called from python code in DISABLE_JIT mode.
+_global_atomics_lock = Lock()
+
+if numba.config.DISABLE_JIT:
+    warnings.warn(
+        "Atomic operations are not fully atomic when DISABLE_JIT is set. Only use DISABLE_JIT for testing "
+        "and debugging."
+    )
+
+def declare_atomic_array_op(iop, uop, fop):
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            with _global_atomics_lock:
+                func(*args, **kwargs)
+
+        @type_callable(wrapper)
+        def func_type(context):
+            def typer(ary, idx, val):
+                out = get_array_index_type(ary, idx)
+                if out is not None:
+                    res = out.result
+                    if context.can_convert(val, res):
+                        return res
+                return None
+
+            return typer
+
+        _ = func_type
+
+        @lower_builtin(wrapper, types.Buffer, types.Any, types.Any)
+        def func_impl(context, builder, sig, args):
+            """
+            array[a] = scalar_or_array
+            array[a,..,b] = scalar_or_array
+            """
+            aryty, idxty, valty = sig.args
+            ary, idx, val = args
+
+            if isinstance(idxty, types.BaseTuple):
+                index_types = idxty.types
+                indices = cgutils.unpack_tuple(builder, idx, count=len(idxty))
+            else:
+                index_types = (idxty,)
+                indices = (idx,)
+
+            ary = make_array(aryty)(context, builder, ary)
+
+            # First try basic indexing to see if a single array location is denoted.
+            index_types, indices = normalize_indices(
+                context, builder, index_types, indices
+            )
+            dataptr, shapes, _strides = basic_indexing(
+                context,
+                builder,
+                aryty,
+                ary,
+                index_types,
+                indices,
+                boundscheck=context.enable_boundscheck,
+            )
+            if shapes:
+                raise NotImplementedError("Complex shapes are not supported")
+
+            # Store source value at the given location
+            val = context.cast(builder, val, valty, aryty.dtype)
+            op = None
+            if isinstance(aryty.dtype, types.Integer) and aryty.dtype.signed:
+                op = iop
+            elif isinstance(aryty.dtype, types.Integer) and not aryty.dtype.signed:
+                op = uop
+            elif isinstance(aryty.dtype, types.Float):
+                op = fop
+            if op is None:
+                raise TypeError("Atomic operation not supported on " + str(aryty))
+            return atomic_rmw(context, builder, op, aryty, val, dataptr)
+
+        _ = func_impl
+
+        return wrapper
+
+    return decorator
+
+@declare_atomic_array_op("add", "add", "fadd")
+def atomic_add(ary, i, v):
+    orig = ary[i]
+    ary[i] += v
+    return orig
+
 # In this "robust" version of arange the grid doesn't suffer 
 # from the shift of the nodes due to error accumulation.
 # This effect is pronounced only if the step is sufficiently small.
 #@njit([numba.float64[:](numba.float64,numba.float64,numba.float64)],parallel=PARALLEL)
-@njit
+@njit(cache=CACHE)
 def arange_(lower,upper,step):
     npnt = np.floor((upper-lower)/step)+1
     npnt = np.int32(npnt) # strong typing is needed for Numba
@@ -112,7 +222,7 @@ def generate_indexes(ISO):
 # Generate default indexes for isotopologues and molecules
 ISO_INDEX_DEFAULT,MOL_INDEX = generate_indexes(h.ISO)
         
-@njit
+@njit(cache=CACHE)
 def get_iso_index_line(M,I,MOL_INDEX,ISO_INDEX):
     offset = MOL_INDEX[M]
     ind = offset+I-1 # VERY ERROR-PRONE IF ISO_IDS DONT OBEY THE STRICT ORDER!!!
@@ -123,7 +233,7 @@ def get_iso_index_line(M,I,MOL_INDEX,ISO_INDEX):
 # ============================
 
 #@njit(parallel=PARALLEL)
-@njit
+@njit(cache=CACHE)
 def calculate_GammaD(N,T,LineCenterDB,MoleculeNumberDB,IsoNumberDB,ISO_INDEX,MOL_INDEX):
     """
     Calculate Doppler broadening parameter (gamma_d)
@@ -143,7 +253,7 @@ def calculate_GammaD(N,T,LineCenterDB,MoleculeNumberDB,IsoNumberDB,ISO_INDEX,MOL
 # ===============================================
 
 #@njit(parallel=PARALLEL)
-@njit
+@njit(cache=CACHE)
 def weighted_sum(N,M,PARS,MIX):
     """
     Generic function to aply the mixture-dependence for some of the parameters
@@ -222,7 +332,7 @@ def ENV_DEPENDENCE_ISO_INDEX(ISO_INDEX,ISOS,T,Tref,partsum):
 #n_lines,SW,T,Tref,E_LOWER,NU,ISOS,MOLEC_ID,LOCAL_ISO_ID,ISO_INDEX,MOL_INDEX
 #NLINES,SW,T,Tref,E_LOWER,NU,ISOS,MOLEC_ID,LOCAL_ISO_ID,ISO_INDEX,MOL_INDEX
 #@njit(parallel=PARALLEL)
-@njit
+@njit(cache=CACHE)
 def ENV_DEPENDENCE_SW(N,SW,T,Tref,ELOWER,NU,
                       ISOS,MOLEC_ID,LOCAL_ISO_ID,ISO_INDEX,MOL_INDEX):
     """
@@ -253,7 +363,7 @@ def ENV_DEPENDENCE_SW(N,SW,T,Tref,ELOWER,NU,
     return LineIntensity
 
 #@njit(parallel=PARALLEL)
-@njit
+@njit(cache=CACHE)
 def ENV_DEPENDENCE_GAMMA0(N,Gamma0_ref,T,Tref,p,pref,TempRatioPower):
     """
     Environment dependence for pressure broadening parameter.
@@ -272,7 +382,7 @@ def ENV_DEPENDENCE_GAMMA0(N,Gamma0_ref,T,Tref,p,pref,TempRatioPower):
     return Gamma0
         
 #@njit(parallel=PARALLEL)
-@njit
+@njit(cache=CACHE)
 def ENV_DEPENDENCE_DELTA0(N,Delta0_ref,p,pref):
     """
     Environment dependence for pressure shifting parameter.
@@ -300,7 +410,8 @@ def absorptionCoefficient_Voigt(Components=None,SourceTables=None,partitionFunct
                                 File=None, Format=None, OmegaGrid=None,
                                 WavenumberRange=None,WavenumberStep=None,WavenumberWing=None,
                                 WavenumberWingHW=None,WavenumberGrid=None,
-                                Diluent={},EnvDependences=None,NCORES=1, TDoppler=None):
+                                Diluent={},EnvDependences=None,NCORES=1,TDoppler=None,
+                                atomicadd=True):
     """
     ======================================================================
     FAST NUMBA IMPLEMENTATION OF THE ABSORPTION CROSS-SECTION CALCULATION
@@ -396,8 +507,6 @@ def absorptionCoefficient_Voigt(Components=None,SourceTables=None,partitionFunct
         if val < 0 or val > 1: # if val < 0 and val > 1:# CHANGED RJH 23MAR18
             raise Exception('Diluent fraction must be in [0,1]')
                 
-                
-                
     #print('\n  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
     #print('  ~~ NUMBA XSC CALCULATION ~~~~~~~~~~~~~~~~~~')
     #print('  ~~ Using %d core(s)'%(NCORES) )
@@ -428,14 +537,16 @@ def absorptionCoefficient_Voigt(Components=None,SourceTables=None,partitionFunct
     t = time()    
 
     nu,xsc = ABSCOEF_FAST(NLINES,TABLE_NAME,ISOS,DILUENT,
-                 Omegas=WavenumberGrid,
-                 OmegaWing=OmegaWing,OmegaWingHW=OmegaWingHW,reflect=False,
-                 T=Environment['T'],Tref=296.0, TDoppler=TDoppler,
-                 p=Environment['p'],pref=1.0,
-                 partsum=partitionFunction,
-                 profile=1,
-                 test=False,
-                 NCORES=NCORES)
+        Omegas=WavenumberGrid,
+        OmegaWing=OmegaWing,OmegaWingHW=OmegaWingHW,reflect=False,
+        T=Environment['T'],Tref=296.0, TDoppler=TDoppler,
+        p=Environment['p'],pref=1.0,
+        partsum=partitionFunction,
+        profile=1,
+        test=False,
+        NCORES=NCORES,
+        atomicadd=atomicadd
+    )
                  
     #print('  ~~ %f seconds elapsed for calc'%(time()-t))
     #print('  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
@@ -743,7 +854,9 @@ def ABSCOEF_FAST(NLINES,TABLE_NAME,ISOS,DILUENT,
                  partsum=h.PYTIPS,
                  profile=1,
                  test=False,
-                 NCORES=1):
+                 NCORES=1,
+                 atomicadd=True
+                 ):
     """
     ==================
     INPUT PARAMETERS:
@@ -774,14 +887,18 @@ def ABSCOEF_FAST(NLINES,TABLE_NAME,ISOS,DILUENT,
     #else:
     #    raise Excepion('Unknown profile number: %d'%profile)
         
+    # ATTENTION!!! 
+    # Current "long-term" version of HAPI used masked arrays
+    # which are not supported by Numba.
+        
     # Get molecule and isotopologue local HITRAN ids
-    MOLEC_ID = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['molec_id']
-    LOCAL_ISO_ID = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['local_iso_id']
+    MOLEC_ID = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['molec_id'].filled(-1)
+    LOCAL_ISO_ID = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['local_iso_id'].filled(-1)
         
     # Get centers, intensities, and lower states
-    NU = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['nu']
-    SW = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['sw']
-    ELOWER = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['elower']
+    NU = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['nu'].filled(np.nan)
+    SW = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['sw'].filled(np.nan)
+    ELOWER = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['elower'].filled(np.nan)
 
     # Calculate additional parameters in ISO_INDEX: abundances (depend on isotopic constitution)
     # and partition sums (depend on PS routine, reference temperatures and current mixture temperature)
@@ -802,11 +919,11 @@ def ABSCOEF_FAST(NLINES,TABLE_NAME,ISOS,DILUENT,
     GAMMA_L = np.zeros(NLINES)
     for broadener,fraction in DILUENT:
         
-        GAMMA_BR = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['gamma_%s'%broadener]
+        GAMMA_BR = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['gamma_%s'%broadener].filled(np.nan)
         if broadener=='self': # !!! THIS SHOULD BE REDONE !!!
-            N_BR = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['n_air']
+            N_BR = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['n_air'].filled(np.nan)
         else:
-            N_BR = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['n_%s'%broadener.lower()]
+            N_BR = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['n_%s'%broadener.lower()].filled(np.nan)
         GAMMA_BR = ENV_DEPENDENCE_GAMMA0(NLINES,GAMMA_BR,T,Tref,p,pref,N_BR)
         GAMMA_L += GAMMA_BR*fraction
 
@@ -816,32 +933,55 @@ def ABSCOEF_FAST(NLINES,TABLE_NAME,ISOS,DILUENT,
         if broadener=='self': # !!! THIS SHOULD BE REDONE !!!
             DELTA_BR = np.zeros(NLINES)
         else:
-            DELTA_BR = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['delta_%s'%broadener]
+            DELTA_BR = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['delta_%s'%broadener].filled(np.nan)
         DELTA_BR = ENV_DEPENDENCE_DELTA0(NLINES,DELTA_BR,p,pref)
         DELTA += DELTA_BR*fraction
         
     #print('ABSCOEF_FAST: %f sec elapsed for transforming parameters'%(time()-t))
+    
+    def dump(obj,name):
+        with open(name+'.out','w') as f:
+            f.write(str(type(obj))+'\n')
+            np.savetxt(f,obj)
 
-    t = time()
-    if not test:
-        #print('Omegas',type(Omegas),Omegas.dtype,
-        #      'NU',type(NU),NU.dtype,
-        #      'SW',type(SW),SW.dtype,
-        #      'ELOWER',type(ELOWER),ELOWER.dtype,
-        #      'MOLEC_ID',type(MOLEC_ID),MOLEC_ID.dtype,
-        #      'LOCAL_ISO_ID',type(LOCAL_ISO_ID),LOCAL_ISO_ID.dtype,
-        #      'GAMMA_L',type(GAMMA_L),GAMMA_L.dtype,
-        #      'GAMMA_D',type(GAMMA_D),GAMMA_D.dtype,
-        #      'DELTA',type(DELTA),DELTA.dtype,
-        #      'NLINES',type(NLINES),None,
-        #      'OmegaRange',type(OmegaRange),OmegaRange.dtype,
-        #      'OmegaStep',type(OmegaStep),None,
-        #      'OmegaWing',type(OmegaWing),None,
-        #      'OmegaWingHW',type(OmegaWingHW),None,
-        #      'reflect',type(reflect),None,
-        #      'profile',type(profile),None)
-        Xsect = CALC_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES,
-                    OmegaWing,OmegaWingHW,reflect,profile)    
+    if not test: 
+        
+        print('ABSCOEF_FAST>>>',0)
+        
+        #dump(Omegas,'Omegas')
+        #dump(NU,'NU')
+        #dump(SW,'SW')
+        #dump(ELOWER,'ELOWER')
+        #dump(MOLEC_ID,'MOLEC_ID')
+        #dump(LOCAL_ISO_ID,'LOCAL_ISO_ID')
+        #dump(GAMMA_L,'GAMMA_L')
+        #dump(GAMMA_D,'GAMMA_D')
+        #dump(DELTA,'DELTA')
+        #dump([NLINES,OmegaWing,OmegaWingHW,reflect,profile,atomicadd],'scalars')
+        
+        #print('Omegas',type(Omegas),Omegas.dtype,)
+        #print('NU',type(NU),NU.dtype,)
+        #print('SW',type(SW),SW.dtype,)
+        #print('ELOWER',type(ELOWER),ELOWER.dtype,)
+        #print('MOLEC_ID',type(MOLEC_ID),MOLEC_ID.dtype,)
+        #print('LOCAL_ISO_ID',type(LOCAL_ISO_ID),LOCAL_ISO_ID.dtype,)
+        #print('GAMMA_L',type(GAMMA_L),GAMMA_L.dtype,)
+        #print('GAMMA_D',type(GAMMA_D),GAMMA_D.dtype,)
+        #print('DELTA',type(DELTA),DELTA.dtype,)
+        #print('NLINES',type(NLINES),None,)
+        #print('OmegaWing',type(OmegaWing),None,)
+        #print('OmegaWingHW',type(OmegaWingHW),None,)
+        #print('reflect',type(reflect),None,)
+        #print('profile',type(profile),None)
+        
+        if not atomicadd:
+            Xsect = CALC_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES,
+                        OmegaWing,OmegaWingHW,reflect,profile)    
+        else:
+            Xsect = CALCat_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES,
+                        OmegaWing,OmegaWingHW,reflect,profile)                
+        #Xsect = CALC1_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES,
+        #            OmegaWing,OmegaWingHW,reflect,profile)    
         #Xsect = CALC0_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES,
         #            OmegaWing,OmegaWingHW,reflect,profile,NCORES)    
     else:
@@ -860,14 +1000,16 @@ def ABSCOEF_FAST(NLINES,TABLE_NAME,ISOS,DILUENT,
 #@njit
 #@njit(parallel=PARALLEL,fastmath=FASTMATH)
 ## ! When specifying the types explicitly, the compilation becomes much faster
-##                            Omegas         NU                SW               ELOWER          MOLEC_ID    LOCAL_ISO_ID
-# @njit([numba.float64[:](numba.float64[:],numba.float64[:],numba.float64[:],numba.float64[:],numba.int32[:],numba.int32[:],
-# #        GAMMA_L          GAMMA_D          DELTA             NLINES       OmegaRange
-       # numba.float64[:],numba.float64[:],numba.float64[:],numba.int64,numba.float64[:],
-# #       OmegaStep      OmegaWing    OmegaWingHW    reflect       profile=1
-       # numba.float64,numba.float64,numba.float64,numba.boolean,numba.int64)],
-       # parallel=PARALLEL,fastmath=FASTMATH)
-@njit(parallel=PARALLEL,fastmath=FASTMATH)
+#@njit(parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)
+#        Output           Omegas             NU                SW         
+@njit([numba.float64[:](numba.float64[:],numba.float64[:],numba.float64[:],
+#        ELOWER           MOLEC_ID       LOCAL_ISO_ID
+       numba.float64[:],numba.int64[:],numba.int64[:],
+#        GAMMA_L          GAMMA_D          DELTA             NLINES   
+       numba.float64[:],numba.float64[:],numba.float64[:],numba.int64,
+#        OmegaWing    OmegaWingHW    reflect       profile=1
+       numba.float64,numba.float64,numba.boolean,numba.int64)],
+       parallel=PARALLEL,fastmath=FASTMATH)
 def CALC_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES,
           OmegaWing=None,OmegaWingHW=None,reflect=True,profile=1):
     # THIS FUNCTION SUFFERS FROM THE PARALLELIZATION BUG IN NUMBA 
@@ -876,6 +1018,8 @@ def CALC_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES
     # https://github.com/numba/numba/issues/2804
           
     # PROFILES: 1 - Voigt, 2 - Lorentz, 3 - Doppler
+    
+    #print('CALC_>>>',0)
    
     OmegaRange = (Omegas[0],Omegas[-1])
    
@@ -916,7 +1060,7 @@ def CALC_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES
         lineshape_vals = np.zeros(BoundIndexUpper-BoundIndexLower)
 
         if profile==1:
-            lineshape_vals[BoundIndexMiddl:] = PROFILE_SDVOIGT(LineCenterDB,GammaD,Gamma0,0.0,Shift0,0.0,omega_vals[BoundIndexMiddl:])[0] # numba version
+            lineshape_vals[BoundIndexMiddl:] = PROFILE_HT(LineCenterDB,GammaD,Gamma0,0.0,Shift0,0.0,0.0,0.0,omega_vals[BoundIndexMiddl:])[0] # numba version                                                
         elif profile==2:
             lineshape_vals[BoundIndexMiddl:] = PROFILE_LORENTZ(LineCenterDB+Shift0,Gamma0,omega_vals[BoundIndexMiddl:]) # numba version
         elif profile==3:
@@ -931,6 +1075,144 @@ def CALC_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES
 
         Xsect[BoundIndexLower:BoundIndexUpper] += LineIntensity * lineshape_vals
         
+    return Xsect
+
+@njit([numba.float64[:](numba.float64[:],numba.float64[:],numba.float64[:],
+#        ELOWER           MOLEC_ID       LOCAL_ISO_ID
+       numba.float64[:],numba.int64[:],numba.int64[:],
+#        GAMMA_L          GAMMA_D          DELTA             NLINES   
+       numba.float64[:],numba.float64[:],numba.float64[:],numba.int64,
+#        OmegaWing    OmegaWingHW    reflect       profile=1
+       numba.float64,numba.float64,numba.boolean,numba.int64)],
+       parallel=PARALLEL,fastmath=FASTMATH)
+def CALCat_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES,
+          OmegaWing=None,OmegaWingHW=None,reflect=True,profile=1):
+    # THIS FUNCTION SUFFERS FROM THE PARALLELIZATION BUG IN NUMBA 
+    # WHEN THE CONCURRENT ADDITION TO THE ARRAY GIVES RUBBISH RESULT.
+    # THIS BUT WAS FIXED (AS STATED) ONLY IN NUMBA V.0.40
+    # https://github.com/numba/numba/issues/2804
+          
+    # PROFILES: 1 - Voigt, 2 - Lorentz, 3 - Doppler
+    
+    #print('CALC_>>>',0)
+   
+    OmegaRange = (Omegas[0],Omegas[-1])
+   
+    number_of_points = len(Omegas)
+    Xsect = np.zeros(number_of_points,dtype=np.float64)
+                             
+    # loop through line centers (single stream)
+    for RowID in prange(NLINES): # vectorizing the loop    
+        
+        # get basic line parameters (lower level)
+        LineCenterDB = NU[RowID]
+        LineIntensityDB = SW[RowID]
+        LowerStateEnergyDB = ELOWER[RowID]
+        MoleculeNumberDB = MOLEC_ID[RowID]
+        IsoNumberDB = LOCAL_ISO_ID[RowID]
+        Gamma0 = GAMMA_L[RowID]
+        GammaD = GAMMA_D[RowID]
+        Shift0 = DELTA[RowID]
+
+        # get final wing of the line according to Gamma0, OmegaWingHW and OmegaWing
+        OmegaWingF = np.max(np.array([OmegaWing,OmegaWingHW*Gamma0,OmegaWingHW*GammaD]))
+
+        # check if the line calculation range overlaps with the given global calculation range
+        if LineCenterDB+Shift0+OmegaWingF<OmegaRange[0] or LineCenterDB+Shift0-OmegaWingF>OmegaRange[1]:
+            continue
+        
+        LineIntensity = LineIntensityDB
+
+        BoundIndexLower = np.searchsorted(Omegas,LineCenterDB-OmegaWingF,side='right') # side='right' makes new code consistent with old HAPI
+        BoundIndexUpper = np.searchsorted(Omegas,LineCenterDB+OmegaWingF,side='right') # side='right' makes new code consistent with old HAPI
+        if reflect: # calculate only half of the profile
+            #BoundIndexMiddl = (BoundIndexUpper-BoundIndexLower)//2 # ATTENTION: n/2 gives float result in Python 3!!! use the integer division operator
+            BoundIndexMiddl = np.searchsorted(Omegas,LineCenterDB-Gamma0*1,side='right')-BoundIndexLower
+        else: # calculate on the full grid
+            BoundIndexMiddl = 0
+        
+        omega_vals = Omegas[BoundIndexLower:BoundIndexUpper]
+        lineshape_vals = np.zeros(BoundIndexUpper-BoundIndexLower)
+
+        if profile==1:
+            lineshape_vals[BoundIndexMiddl:] = PROFILE_HT(LineCenterDB,GammaD,Gamma0,0.0,Shift0,0.0,0.0,0.0,omega_vals[BoundIndexMiddl:])[0] # numba version                                                                        
+        elif profile==2:
+            lineshape_vals[BoundIndexMiddl:] = PROFILE_LORENTZ(LineCenterDB+Shift0,Gamma0,omega_vals[BoundIndexMiddl:]) # numba version            
+        elif profile==3:
+            lineshape_vals[BoundIndexMiddl:] = PROFILE_DOPPLER(LineCenterDB,GammaD,omega_vals[BoundIndexMiddl:]) # numba version
+        else:
+            print('  ~~ UNKNOWN PROFILE NUMBER')
+                        
+        if reflect:
+            #n = len(lineshape_vals); i = n//2; lineshape_vals[:i] = lineshape_vals[:i-1+n%2:-1] # THIS NEEDS DEBUGGING; ATTENTION: n/2 gives float result in Python 3!!! use the integer division operator
+            n = len(lineshape_vals); lineshape_vals[:BoundIndexMiddl]=lineshape_vals[n-1:n-BoundIndexMiddl-1:-1] 
+        # reflect line shape values if they have been calculated on a half-grid
+
+        #Xsect[BoundIndexLower:BoundIndexUpper] += LineIntensity * lineshape_vals
+        for i in range(0,BoundIndexUpper-BoundIndexLower):
+            atomic_add(Xsect,BoundIndexLower+i,LineIntensity*lineshape_vals[i])
+        
+    return Xsect
+
+#@njit(parallel=PARALLEL, fastmath=FASTMATH, cache=CACHE)
+@njit([numba.float64[:](numba.float64[:],numba.float64[:],numba.float64[:],
+#        ELOWER           MOLEC_ID       LOCAL_ISO_ID
+       numba.float64[:],numba.int64[:],numba.int64[:],
+#        GAMMA_L          GAMMA_D          DELTA             NLINES   
+       numba.float64[:],numba.float64[:],numba.float64[:],numba.int64,
+#        OmegaWing    OmegaWingHW    reflect       profile=1
+       numba.float64,numba.float64,numba.boolean,numba.int64)],
+       parallel=PARALLEL,fastmath=FASTMATH)
+def CALC1_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES,
+           OmegaWing=None,OmegaWingHW=None,reflect=True,profile=1):
+    # PROFILES: 1 - Voigt, 2 - Lorentz, 3 - Doppler
+
+    number_of_points = len(Omegas)
+    Xsect = np.zeros(number_of_points, dtype=np.float64)
+    OmegaWing = OmegaWing if OmegaWing is not None else 0.0
+    OmegaWingHW = OmegaWingHW if OmegaWingHW is not None else 0.0
+
+    # Parallelize over Omega grid points
+    for omega_idx in prange(number_of_points):
+        omega = Omegas[omega_idx]
+        total = 0.0
+
+        omegas = np.zeros(1,dtype=np.float64)
+
+        for RowID in range(NLINES):
+            
+            LineCenterDB = NU[RowID]
+            LineIntensityDB = SW[RowID]
+            Gamma0 = GAMMA_L[RowID]
+            GammaD = GAMMA_D[RowID]
+            Shift0 = DELTA[RowID]
+            
+            OmegaWingF = max(OmegaWing, OmegaWingHW * Gamma0, OmegaWingHW * GammaD)
+            ShiftedCenter = LineCenterDB + Shift0
+            if omega < ShiftedCenter - OmegaWingF or omega > ShiftedCenter + OmegaWingF:
+                continue  # Skip lines that don't affect this Omega point
+
+            # Calculate line profile contribution
+            if profile == 1:
+                # Voigt profile (replace with actual implementation)                
+                omegas[0] = omega
+                #lineshape_val = PROFILE_SDVOIGT(LineCenterDB,GammaD,Gamma0,0.0,Shift0,0.0,omegas)[0][0]
+                lineshape_val = pcqsdhc_new(LineCenterDB,GammaD,Gamma0,0.0,Shift0,0.0,0.0,0.0,omega)[0]
+            elif profile == 2:
+                pass
+                #lineshape_val = lorentzian_profile(omega, ShiftedCenter, Gamma0)
+            elif profile == 3:
+                pass
+                #lineshape_val = doppler_profile(omega, LineCenterDB, GammaD)
+            else:
+                continue  # Skip unknown profiles
+
+            total += LineIntensityDB * lineshape_val
+
+        Xsect[omega_idx] = total
+        
+        #print(omega_idx,number_of_points) # DEBUG
+
     return Xsect
 
 @njit(parallel=PARALLEL,fastmath=FASTMATH)
