@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="hitran-api2",
-    version="0.1",
+    version="0.2",
     author="Roman Kochanov",
     author_email="",
     description="HITRAN Application Programming Interface (HAPI) v2",
