@@ -32,4 +32,4 @@ def storage2cache(tablename,query=None,parnames=None):
     LOCAL_TABLE_CACHE[tablename]['data'] = {}
     
     for parname,datum in zip(parnames,data):
-        LOCAL_TABLE_CACHE[tablename]['data'][parname] = np.array(datum)
+        LOCAL_TABLE_CACHE[tablename]['data'][parname] = np.ma.array(datum)
