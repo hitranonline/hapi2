@@ -432,6 +432,11 @@ TIPS_LOOKUP_TABLE = {
         'ISOQ_HASH':lambda M,I: hapi.TIPS_2021_ISOQ_HASH[(M,I)],
         'SOURCE_DOI':'10.1016/j.jqsrt.2021.107713'
     },
+    '2025': {
+        'ISOT_HASH':lambda M,I: hapi.TIPS_2025_ISOT_HASH[(M,I)],
+        'ISOQ_HASH':lambda M,I: hapi.TIPS_2025_ISOQ_HASH[(M,I)],
+        'SOURCE_DOI':'10.1016/j.jqsrt.2025.109568'
+    },
 }
 
 def get_MI(iso):
@@ -460,6 +465,7 @@ def get_local_pfunc_id(tips_version,iso):
         '2011':1000000,
         '2017':2000000,
         '2021':3000000,
+        '2025':4000000,
     }
     Mid = 100*iso.molecule.id
     Iid = iso.isoid
