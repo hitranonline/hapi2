@@ -21,3 +21,8 @@ showcase/~tmp/
 
 tests/*
 !tests/*.py
+
+.provenance
+config.json
+local
+
