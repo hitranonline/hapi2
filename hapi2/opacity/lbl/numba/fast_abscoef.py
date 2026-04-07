@@ -9,6 +9,8 @@ import hapi as h
 #import hapi_TEST as h # geek version of HAPI to debug the comparisons
 from .sdv import PROFILE_SDVOIGT,PROFILE_LORENTZ,PROFILE_DOPPLER
 from time import time
+from concurrent.futures import ThreadPoolExecutor
+import os
 
 from .settings import FASTMATH
 from .settings import PARALLEL
@@ -233,7 +235,11 @@ def get_iso_index_line(M,I,MOL_INDEX,ISO_INDEX):
 # ============================
 
 #@njit(parallel=PARALLEL)
-@njit(cache=CACHE)
+@njit([
+       numba.float64[:](numba.int64,numba.float64,numba.float64[:],numba.int64[:],numba.int64[:],numba.float64[:,:],numba.int64[:]),
+       numba.float64[:](numba.int64,numba.float64,numba.float64[:],numba.int32[:],numba.int32[:],numba.float64[:,:],numba.int64[:])
+      ],
+      parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)
 def calculate_GammaD(N,T,LineCenterDB,MoleculeNumberDB,IsoNumberDB,ISO_INDEX,MOL_INDEX):
     """
     Calculate Doppler broadening parameter (gamma_d)
@@ -241,8 +247,7 @@ def calculate_GammaD(N,T,LineCenterDB,MoleculeNumberDB,IsoNumberDB,ISO_INDEX,MOL
     """
     GammaD = np.zeros(N)
     cMassMol = 1.66053873e-27 # internal constant given in HAPI code
-    #for i in prange(N):
-    for i in range(N):
+    for i in prange(N):
         # ATTENTION!!! IsoNumberDB parameter can be ambiguous (e.g. for CO2)
         m = get_iso_index_line(MoleculeNumberDB[i],IsoNumberDB[i],MOL_INDEX,ISO_INDEX)[6] * cMassMol * 1000
         GammaD[i] = np.sqrt(2*h.cBolts*T*np.log(2)/m/h.cc**2)*LineCenterDB[i]
@@ -273,18 +278,70 @@ def weighted_sum(N,M,PARS,MIX):
 # ====================================================================
 # GET ISOS MATRIX (DESCRPTION OF THE RADIATIVELY ACTIVE ISOTOPOLOGUES)    
 # ====================================================================
+@njit([numba.float64[:,:](numba.int64,numba.int64[:],numba.int64[:])],
+      parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)
+def GET_ISOS_DEFAULT_ABUN_NUMBA(N,MOLEC_ID,LOCAL_ISO_ID):
+    """
+    Parallel builder for unique (molec_id, local_iso_id) pairs.
+    Returns float64 matrix with columns [M, I, abun=-1].
+    """
+    if N <= 0:
+        return np.empty((0,3),dtype=np.float64)
+
+    # Determine bounds for dense marker table.
+    max_m = 0
+    max_i = 0
+    for k in range(N):
+        m = MOLEC_ID[k]
+        i = LOCAL_ISO_ID[k]
+        if m > max_m:
+            max_m = m
+        if i > max_i:
+            max_i = i
+
+    stride = max_i + 1
+    marker = np.zeros((max_m + 1) * stride,dtype=np.int64)
+
+    # Parallel pass over all spectral lines.
+    for k in prange(N):
+        m = MOLEC_ID[k]
+        i = LOCAL_ISO_ID[k]
+        if m >= 0 and i >= 0:
+            atomic_add(marker,m*stride+i,1)
+
+    # Count unique pairs.
+    n_unique = 0
+    for idx in range(marker.shape[0]):
+        if marker[idx] > 0:
+            n_unique += 1
+
+    # Build output sorted by (M, I), same semantics as np.unique on rows.
+    isos = np.empty((n_unique,3),dtype=np.float64)
+    row = 0
+    for m in range(max_m + 1):
+        base = m * stride
+        for i in range(max_i + 1):
+            if marker[base + i] > 0:
+                isos[row,0] = m
+                isos[row,1] = i
+                isos[row,2] = -1.0
+                row += 1
+
+    return isos
+
 def GET_ISOS_DEFAULT_ABUN(N,MOLEC_ID,LOCAL_ISO_ID):
     """
     Get the description of the radiatively active compounds of the modeled mixture.
     The abundances are set to -1 (default values)
     """
-    # https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.full.html
-    ABUN = np.full(N,fill_value=-1.,dtype=np.float64)
-    # https://stackoverflow.com/questions/44409084/how-to-zip-two-1d-numpy-array-to-2d-numpy-array
-    ZIPPED = np.array(list(zip(MOLEC_ID,LOCAL_ISO_ID,ABUN)))
-    # https://stackoverflow.com/questions/16970982/find-unique-rows-in-numpy-array
-    ISOS = np.unique(ZIPPED,axis=0)
-    return ISOS
+    n = np.int64(N)
+    if n <= 0:
+        return np.empty((0,3),dtype=np.float64)
+
+    # Normalize dtypes/contiguity once, then run the parallel Numba kernel.
+    molec = np.ascontiguousarray(MOLEC_ID[:n],dtype=np.int64)
+    local_iso = np.ascontiguousarray(LOCAL_ISO_ID[:n],dtype=np.int64)
+    return GET_ISOS_DEFAULT_ABUN_NUMBA(n,molec,local_iso)
     
 #========================================================================
 # ENV_DEPENEDENCE_<PARNAME> SHOULD ACCEPT THE PARAMETERS AS AN ARRAY/LIST
@@ -314,25 +371,52 @@ def ENV_DEPENDENCE_ISO_INDEX(ISO_INDEX,ISOS,T,Tref,partsum):
     1) Abundances (depending on the mixture)
     2) Partition sums (depending on the current and reference temperature)
     """
-    #for i in prange(ISOS.shape[0]):
-    for i in range(ISOS.shape[0]):
+    n_isos = ISOS.shape[0]
+    q_tref = np.zeros(n_isos,dtype=np.float64)
+    q_t = np.zeros(n_isos,dtype=np.float64)
+
+    # Partition-sum calls are Python-level; use thread pool when requested.
+    if PARALLEL and n_isos > 1:
+        max_workers = min(n_isos, os.cpu_count() or 1)
+
+        def _calc_qvals(idx):
+            iso = ISOS[idx,:]
+            m = int(iso[0]); i = int(iso[1])
+            return idx, partsum(m,i,Tref), partsum(m,i,T)
+
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            for idx, qref_i, qt_i in pool.map(_calc_qvals, range(n_isos)):
+                q_tref[idx] = qref_i
+                q_t[idx] = qt_i
+    else:
+        for idx in range(n_isos):
+            iso = ISOS[idx,:]
+            m = int(iso[0]); i = int(iso[1])
+            q_tref[idx] = partsum(m,i,Tref)
+            q_t[idx] = partsum(m,i,T)
+
+    for i in range(n_isos):
         ISO = ISOS[i,:]
-        M = ISO[0]; I = ISO[1]; abun = ISO[2]   
-        M = int(M); I = int(I)
+        M = int(ISO[0]); I = int(ISO[1]); abun = ISO[2]
         # find index of the current isotopologue
         ISO_INDEX_LINE = get_iso_index_line(M,I,MOL_INDEX,ISO_INDEX)
-        # calculate Q at Tref
-        ISO_INDEX_LINE[4] = partsum(M,I,Tref)
-        # calculate Q at T
-        ISO_INDEX_LINE[5] = partsum(M,I,T)
+        # assign partition sums
+        ISO_INDEX_LINE[4] = q_tref[i]
+        ISO_INDEX_LINE[5] = q_t[i]
         # sort things out with abundances
-        if abun>0: 
-            ISO_INDEX[ind][3] = abun
+        if abun>0:
+            ISO_INDEX_LINE[3] = abun
     
 #n_lines,SW,T,Tref,E_LOWER,NU,ISOS,MOLEC_ID,LOCAL_ISO_ID,ISO_INDEX,MOL_INDEX
 #NLINES,SW,T,Tref,E_LOWER,NU,ISOS,MOLEC_ID,LOCAL_ISO_ID,ISO_INDEX,MOL_INDEX
 #@njit(parallel=PARALLEL)
-@njit(cache=CACHE)
+@njit([
+       numba.float64[:](numba.int64,numba.float64[:],numba.float64,numba.float64,numba.float64[:],numba.float64[:],
+                        numba.float64[:,:],numba.int64[:],numba.int64[:],numba.float64[:,:],numba.int64[:]),
+       numba.float64[:](numba.int64,numba.float64[:],numba.float64,numba.float64,numba.float64[:],numba.float64[:],
+                        numba.float64[:,:],numba.int32[:],numba.int32[:],numba.float64[:,:],numba.int64[:])
+      ],
+      parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)
 def ENV_DEPENDENCE_SW(N,SW,T,Tref,ELOWER,NU,
                       ISOS,MOLEC_ID,LOCAL_ISO_ID,ISO_INDEX,MOL_INDEX):
     """
@@ -351,8 +435,7 @@ def ENV_DEPENDENCE_SW(N,SW,T,Tref,ELOWER,NU,
     """
     const = 1.4388028496642257
     LineIntensity = np.zeros(N)
-    #for i in prange(N):
-    for i in range(N):
+    for i in prange(N):
         M = MOLEC_ID[i]; I = LOCAL_ISO_ID[i]
         ISO_INDEX_LINE = get_iso_index_line(M,I,MOL_INDEX,ISO_INDEX)
         SigmaTref = ISO_INDEX_LINE[4]
@@ -363,7 +446,8 @@ def ENV_DEPENDENCE_SW(N,SW,T,Tref,ELOWER,NU,
     return LineIntensity
 
 #@njit(parallel=PARALLEL)
-@njit(cache=CACHE)
+@njit([numba.float64[:](numba.int64,numba.float64[:],numba.float64,numba.float64,numba.float64,numba.float64,numba.float64[:])],
+      parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)
 def ENV_DEPENDENCE_GAMMA0(N,Gamma0_ref,T,Tref,p,pref,TempRatioPower):
     """
     Environment dependence for pressure broadening parameter.
@@ -376,13 +460,13 @@ def ENV_DEPENDENCE_GAMMA0(N,Gamma0_ref,T,Tref,p,pref,TempRatioPower):
        TempRatioPower     N       n_<agent>
     """
     Gamma0 = np.zeros(N)
-    #for i in prange(N):
-    for i in range(N):
+    for i in prange(N):
         Gamma0[i] = Gamma0_ref[i]*p/pref*(Tref/T)**TempRatioPower[i]
     return Gamma0
         
 #@njit(parallel=PARALLEL)
-@njit(cache=CACHE)
+@njit([numba.float64[:](numba.int64,numba.float64[:],numba.float64,numba.float64)],
+      parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)
 def ENV_DEPENDENCE_DELTA0(N,Delta0_ref,p,pref):
     """
     Environment dependence for pressure shifting parameter.
@@ -394,8 +478,7 @@ def ENV_DEPENDENCE_DELTA0(N,Delta0_ref,p,pref):
        Delta0_ref         N       delta_<agent>
     """
     Delta0 = np.zeros(N)
-    #for i in prange(N):
-    for i in range(N):
+    for i in prange(N):
         Delta0[i] = Delta0_ref[i]*p/pref
     return Delta0
     
@@ -456,12 +539,16 @@ def absorptionCoefficient_Voigt(Components=None,SourceTables=None,partitionFunct
     """
     t = time()
     
+    #print('0>>>')
+    
     # raise exceptions for not implemented features
     if EnvDependences is not None: raise NotImplementedError('custom environment dependences are not implemented for the Numba version')
     if LineShift is not True: raise NotImplementedError('disabling line shift is not implemented for the Numba version')
     if File is not None: raise NotImplementedError('saving to file is not implemented for the Numba version')
     if Format is not None: raise NotImplementedError('saving to file is not implemented for the Numba version')
     #if Components is not None: raise NotImplementedError('filtering by components is not implemented for the Numba version')
+
+    #print('2>>>')
     
     # Paremeters OmegaRange,OmegaStep,OmegaWing,OmegaWingHW, and OmegaGrid
     # are deprecated and given for backward compatibility with the older versions.
@@ -470,6 +557,8 @@ def absorptionCoefficient_Voigt(Components=None,SourceTables=None,partitionFunct
     if WavenumberWing is not None:   OmegaWing=WavenumberWing
     if WavenumberWingHW is not None: OmegaWingHW=WavenumberWingHW
     if WavenumberGrid is not None:   OmegaGrid=WavenumberGrid
+
+    #print('3>>>')
 
     # "bug" with 1-element list
     Components = listOfTuples(Components)
@@ -480,15 +569,21 @@ def absorptionCoefficient_Voigt(Components=None,SourceTables=None,partitionFunct
     
     # Hack to disregard the components parameter
     Components = -1
+
+    #print('4>>>')
     
     # determine final input values 
-    Components,SourceTables,Environment,OmegaRange,OmegaStep,OmegaWing,\
-    IntensityThreshold,Format = \
-       getDefaultValuesForXsect(Components,SourceTables,Environment,OmegaRange,
-                                OmegaStep,OmegaWing,IntensityThreshold,Format)
+    #Components,SourceTables,Environment,OmegaRange,OmegaStep,OmegaWing,\
+    #IntensityThreshold,Format = \
+    #   getDefaultValuesForXsect(Components,SourceTables,Environment,OmegaRange,
+    #                            OmegaStep,OmegaWing,IntensityThreshold,Format)
+    if type(SourceTables) is str: SourceTables = [SourceTables]
+    if Environment is None: Environment = {'p':1.0,'T':296.0}    
+
+    #print('5>>>')
     
     # warn user about too large omega step
-    if OmegaStep>0.1: warn('Big wavenumber step: possible accuracy decline')
+    #if OmegaStep>0.1: warn('Big wavenumber step: possible accuracy decline')
         
     # setup the Diluent variable
     GammaL = GammaL.lower()
@@ -499,6 +594,8 @@ def absorptionCoefficient_Voigt(Components=None,SourceTables=None,partitionFunct
             Diluent = {'self':1.}
         else:
             raise Exception('Unknown GammaL value: %s' % GammaL)
+
+    #print('6>>>')
         
     # Simple check
     #print(Diluent)  # Added print statement # CHANGED RJH 23MAR18  # Simple check
@@ -506,6 +603,8 @@ def absorptionCoefficient_Voigt(Components=None,SourceTables=None,partitionFunct
         val = Diluent[key]
         if val < 0 or val > 1: # if val < 0 and val > 1:# CHANGED RJH 23MAR18
             raise Exception('Diluent fraction must be in [0,1]')
+
+    #print('7>>>')
                 
     #print('\n  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
     #print('  ~~ NUMBA XSC CALCULATION ~~~~~~~~~~~~~~~~~~')
@@ -525,11 +624,13 @@ def absorptionCoefficient_Voigt(Components=None,SourceTables=None,partitionFunct
     
     # New code starts here
     TABLE_NAME = SourceTables[0]
+    #print('getColumns')
     MOLEC_ID,LOCAL_ISO_ID = h.getColumns(TABLE_NAME,['molec_id','local_iso_id'])
     NLINES = len(MOLEC_ID)
+    #print('GET_ISOS_DEFAULT_ABUN')
     ISOS = GET_ISOS_DEFAULT_ABUN(NLINES,MOLEC_ID,LOCAL_ISO_ID)
     DILUENT = list(Diluent.items())    
-    OmegaRange = np.array(OmegaRange)
+    #OmegaRange = np.array(OmegaRange)
     
     #print('  ~~ %f seconds elapsed for pre-calc'%(time()-t))
     #print('  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
@@ -892,23 +993,31 @@ def ABSCOEF_FAST(NLINES,TABLE_NAME,ISOS,DILUENT,
     # which are not supported by Numba.
         
     # Get molecule and isotopologue local HITRAN ids
+    #print('filling MOLEC_ID')
     MOLEC_ID = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['molec_id'].filled(-1)
+    #print('filling LOCAL_ISO_ID')
     LOCAL_ISO_ID = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['local_iso_id'].filled(-1)
         
     # Get centers, intensities, and lower states
+    #print('filling NU')
     NU = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['nu'].filled(np.nan)
+    #print('filling SW')
     SW = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['sw'].filled(np.nan)
     ELOWER = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['elower'].filled(np.nan)
 
     # Calculate additional parameters in ISO_INDEX: abundances (depend on isotopic constitution)
     # and partition sums (depend on PS routine, reference temperatures and current mixture temperature)
+    #print('ISO_INDEX')
     ISO_INDEX = ISO_INDEX_DEFAULT.copy() # copy iso index in order to avoid side effects
+    #print('ENV_DEPENDENCE_ISO_INDEX')
     ENV_DEPENDENCE_ISO_INDEX(ISO_INDEX,ISOS,T,Tref,partsum) # go through ISO_INDEX  and change partition sums and current abundances
     
-    # Get intensities and account for T-dependences and isotopic abundances    
+    # Get intensities and account for T-dependences and isotopic abundances
+    #print('ENV_DEPENDENCE_SW')    
     SW = ENV_DEPENDENCE_SW(NLINES,SW,T,Tref,ELOWER,NU,ISOS,MOLEC_ID,LOCAL_ISO_ID,ISO_INDEX,MOL_INDEX)
     
     # Calculate Doppler broadening
+    #print('calculate_GammaD')  
     if TDoppler:
         TDoppler = np.float64(TDoppler)
         GAMMA_D = calculate_GammaD(NLINES,TDoppler,NU,MOLEC_ID,LOCAL_ISO_ID,ISO_INDEX,MOL_INDEX)
@@ -916,24 +1025,30 @@ def ABSCOEF_FAST(NLINES,TABLE_NAME,ISOS,DILUENT,
         GAMMA_D = calculate_GammaD(NLINES,T,NU,MOLEC_ID,LOCAL_ISO_ID,ISO_INDEX,MOL_INDEX)
     
     # Get Lorentzian broadening parameters and account for their T- and p-dependences
-    GAMMA_L = np.zeros(NLINES)
+    GAMMA_L = np.zeros(NLINES)    
     for broadener,fraction in DILUENT:
-        
+        #print('filling GAMMA_BR')
         GAMMA_BR = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['gamma_%s'%broadener].filled(np.nan)
         if broadener=='self': # !!! THIS SHOULD BE REDONE !!!
+            #print('filling N_BR')
             N_BR = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['n_air'].filled(np.nan)
         else:
+            #print('filling N_BR')
             N_BR = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['n_%s'%broadener.lower()].filled(np.nan)
+        #print('ENV_DEPENDENCE_GAMMA0')
         GAMMA_BR = ENV_DEPENDENCE_GAMMA0(NLINES,GAMMA_BR,T,Tref,p,pref,N_BR)
         GAMMA_L += GAMMA_BR*fraction
 
     # Get shifting parameters and account for their T- and p-dependences
     DELTA = np.zeros(NLINES)
+    #print(ENV_DEPENDENCE_DELTA0)
     for broadener,fraction in DILUENT:
         if broadener=='self': # !!! THIS SHOULD BE REDONE !!!
             DELTA_BR = np.zeros(NLINES)
         else:
+            #print('filling DELTA_BR')
             DELTA_BR = h.LOCAL_TABLE_CACHE[TABLE_NAME]['data']['delta_%s'%broadener].filled(np.nan)
+        #print('ENV_DEPENDENCE_DELTA0')
         DELTA_BR = ENV_DEPENDENCE_DELTA0(NLINES,DELTA_BR,p,pref)
         DELTA += DELTA_BR*fraction
         
@@ -946,7 +1061,7 @@ def ABSCOEF_FAST(NLINES,TABLE_NAME,ISOS,DILUENT,
 
     if not test: 
         
-        print('ABSCOEF_FAST>>>',0)
+        #print('ABSCOEF_FAST>>>',0)
         
         #dump(Omegas,'Omegas')
         #dump(NU,'NU')
@@ -1002,13 +1117,19 @@ def ABSCOEF_FAST(NLINES,TABLE_NAME,ISOS,DILUENT,
 ## ! When specifying the types explicitly, the compilation becomes much faster
 #@njit(parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)
 #        Output           Omegas             NU                SW         
-@njit([numba.float64[:](numba.float64[:],numba.float64[:],numba.float64[:],
+@njit([
+       numba.float64[:](numba.float64[:],numba.float64[:],numba.float64[:],
 #        ELOWER           MOLEC_ID       LOCAL_ISO_ID
        numba.float64[:],numba.int64[:],numba.int64[:],
 #        GAMMA_L          GAMMA_D          DELTA             NLINES   
        numba.float64[:],numba.float64[:],numba.float64[:],numba.int64,
 #        OmegaWing    OmegaWingHW    reflect       profile=1
-       numba.float64,numba.float64,numba.boolean,numba.int64)],
+       numba.float64,numba.float64,numba.boolean,numba.int64),
+       numba.float64[:](numba.float64[:],numba.float64[:],numba.float64[:],
+       numba.float64[:],numba.int32[:],numba.int32[:],
+       numba.float64[:],numba.float64[:],numba.float64[:],numba.int64,
+       numba.float64,numba.float64,numba.boolean,numba.int64)
+      ],
        parallel=PARALLEL,fastmath=FASTMATH)
 def CALC_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES,
           OmegaWing=None,OmegaWingHW=None,reflect=True,profile=1):
@@ -1077,13 +1198,19 @@ def CALC_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES
         
     return Xsect
 
-@njit([numba.float64[:](numba.float64[:],numba.float64[:],numba.float64[:],
+@njit([
+       numba.float64[:](numba.float64[:],numba.float64[:],numba.float64[:],
 #        ELOWER           MOLEC_ID       LOCAL_ISO_ID
        numba.float64[:],numba.int64[:],numba.int64[:],
 #        GAMMA_L          GAMMA_D          DELTA             NLINES   
        numba.float64[:],numba.float64[:],numba.float64[:],numba.int64,
 #        OmegaWing    OmegaWingHW    reflect       profile=1
-       numba.float64,numba.float64,numba.boolean,numba.int64)],
+       numba.float64,numba.float64,numba.boolean,numba.int64),
+       numba.float64[:](numba.float64[:],numba.float64[:],numba.float64[:],
+       numba.float64[:],numba.int32[:],numba.int32[:],
+       numba.float64[:],numba.float64[:],numba.float64[:],numba.int64,
+       numba.float64,numba.float64,numba.boolean,numba.int64)
+      ],
        parallel=PARALLEL,fastmath=FASTMATH)
 def CALCat_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES,
           OmegaWing=None,OmegaWingHW=None,reflect=True,profile=1):
