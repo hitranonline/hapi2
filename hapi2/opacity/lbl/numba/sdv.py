@@ -10,7 +10,7 @@ os.environ[''] =
 os.environ[''] = 
 """
 
-from .settings import FASTMATH
+from .settings import FASTMATH, CACHE
 
 from numba import njit
 import numpy as np
@@ -141,7 +141,7 @@ pipwoeronehalf = 0.564189583547756E0
 #            cerf = cef(x,y,L,a)
 #    return cerf.real,cerf.imag   
     
-@njit(fastmath=FASTMATH)
+@njit(fastmath=FASTMATH,cache=CACHE)
 def HTP_CPF(X,Y): # => WR,WI
 #C-------------------------------------------------
 #C "CPF": Complex Probability Function
@@ -264,7 +264,7 @@ def HTP_CPF(X,Y): # => WR,WI
 #      Return
 #      End
 
-@njit(fastmath=FASTMATH)
+@njit(fastmath=FASTMATH,cache=CACHE)
 def HTP_CPF3(X,Y): # => WR,WI
 #C-------------------------------------------------
 #C "CPF": Complex Probability Function
@@ -329,7 +329,7 @@ def HTP_CPF3(X,Y): # => WR,WI
 # CPF APPROXIMATIONS BY V.P. KOCHANOV
 #=====================================    
 
-@njit    
+@njit(cache=CACHE)    
 def VPKOCHANOV2011a_CPF(x,y):
     """
     Optimized six-term w(x) implementation from the following source:
@@ -356,7 +356,7 @@ def VPKOCHANOV2011a_CPF(x,y):
            (  1.5821736769718555   +  1.5380747276250106    * 1.0j + z )
     return frac.real,frac.imag
 
-@njit
+@njit(cache=CACHE)
 def VPKOCHANOV2011b_CPF(x,y):
     """
     Optimized four-term w(x) implementation from the following source:
@@ -377,7 +377,7 @@ def VPKOCHANOV2011b_CPF(x,y):
            (  1.0446775963500718  + 1.2115613850263882  * 1.0j + z )
     return frac.real,frac.imag
 
-@njit    
+@njit(cache=CACHE)    
 def VPKOCHANOV2016a_CPF(x,y):
     """
     Optimized w(x) implementation from Eq. (12) of the following source:
@@ -407,7 +407,7 @@ def VPKOCHANOV2016a_CPF(x,y):
             (  2.1547091847234636   + 1.922349231346897     * 1.0j + z)
     return frac.real,frac.imag
     
-@njit
+@njit(cache=CACHE)
 def VPKOCHANOV2016b_CPF(x,y):
     """
     Optimized w(x) implementation from Eq. (13) of the following source:
@@ -418,7 +418,7 @@ def VPKOCHANOV2016b_CPF(x,y):
     frac = 1.0j/np.sqrt(np.pi) * 1./(z-1./2/(z-(1./(z-(3./2/(z-2./(z-5./2/(z-3./z))))))))
     return frac.real,frac.imag
     
-@njit
+@njit(cache=CACHE)
 def DUMMY_CPF(x,y):
     return 0.0,0.0
     
@@ -453,7 +453,7 @@ CPF3 = HTP_CPF3                    # DEFAULT, Tran et al.
 # ====================================================================
 
     
-@njit(fastmath=FASTMATH)
+@njit(fastmath=FASTMATH,cache=CACHE)
 def qSDV(sg0,GamD,Gam0,Gam2,Shift0,Shift2,sg): # => LS_qSDV_R,LS_qSDV_I
 #C-------------------------------------------------
 #C	"qSDV": quadratic-Speed-Dependent Voigt
@@ -604,7 +604,7 @@ def qSDV(sg0,GamD,Gam0,Gam2,Shift0,Shift2,sg): # => LS_qSDV_R,LS_qSDV_I
 #      Return
 #      End Subroutine qSDV    
 
-@njit(fastmath=FASTMATH)
+@njit(fastmath=FASTMATH,cache=CACHE)
 def PROFILE_SDVOIGT(sg0, GamD, Gam0, Gam2, Shift0, Shift2, sg):
     # Speed dependent Voigt profile based on HTP.
     # Input parameters:
@@ -624,7 +624,7 @@ def PROFILE_SDVOIGT(sg0, GamD, Gam0, Gam2, Shift0, Shift2, sg):
     
 # OTHER MORE SIMPLE PROFILES
 
-@njit(fastmath=FASTMATH)
+@njit(fastmath=FASTMATH,cache=CACHE)
 def PROFILE_LORENTZ(sg0,Gam0,sg):
     """
     # Lorentz profile.
@@ -638,7 +638,7 @@ def PROFILE_LORENTZ(sg0,Gam0,sg):
 cSqrtLn2divSqrtPi = 0.469718639319144059835
 cLn2 = 0.6931471805599
     
-@njit(fastmath=FASTMATH)    
+@njit(fastmath=FASTMATH,cache=CACHE)    
 def PROFILE_DOPPLER(sg0,GamD,sg):
     """
     # Doppler profile.

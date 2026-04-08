@@ -14,6 +14,7 @@ import os
 
 from .settings import FASTMATH
 from .settings import PARALLEL
+from .settings import CACHE
 
 from hapi import PYTIPS,DefaultIntensityThreshold,DefaultOmegaWingHW,\
                  listOfTuples,getDefaultValuesForXsect
@@ -23,8 +24,6 @@ from numpy import sort as npsort
 PROFILE = PROFILE_SDVOIGT # numba version
 
 from .pCqSDHC_ import pcqsdhc as pcqsdhc_new, PROFILE_HT
-
-CACHE = False
 
 import warnings
 from functools import wraps
@@ -1130,7 +1129,7 @@ def ABSCOEF_FAST(NLINES,TABLE_NAME,ISOS,DILUENT,
        numba.float64[:],numba.float64[:],numba.float64[:],numba.int64,
        numba.float64,numba.float64,numba.boolean,numba.int64)
       ],
-       parallel=PARALLEL,fastmath=FASTMATH)
+       parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)
 def CALC_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES,
           OmegaWing=None,OmegaWingHW=None,reflect=True,profile=1):
     # THIS FUNCTION SUFFERS FROM THE PARALLELIZATION BUG IN NUMBA 
@@ -1211,7 +1210,7 @@ def CALC_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES
        numba.float64[:],numba.float64[:],numba.float64[:],numba.int64,
        numba.float64,numba.float64,numba.boolean,numba.int64)
       ],
-       parallel=PARALLEL,fastmath=FASTMATH)
+       parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)
 def CALCat_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES,
           OmegaWing=None,OmegaWingHW=None,reflect=True,profile=1):
     # THIS FUNCTION SUFFERS FROM THE PARALLELIZATION BUG IN NUMBA 
@@ -1289,7 +1288,7 @@ def CALCat_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLIN
        numba.float64[:],numba.float64[:],numba.float64[:],numba.int64,
 #        OmegaWing    OmegaWingHW    reflect       profile=1
        numba.float64,numba.float64,numba.boolean,numba.int64)],
-       parallel=PARALLEL,fastmath=FASTMATH)
+       parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)
 def CALC1_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES,
            OmegaWing=None,OmegaWingHW=None,reflect=True,profile=1):
     # PROFILES: 1 - Voigt, 2 - Lorentz, 3 - Doppler
@@ -1342,7 +1341,7 @@ def CALC1_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINE
 
     return Xsect
 
-@njit(parallel=PARALLEL,fastmath=FASTMATH)
+@njit(parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)
 def CALC0_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES,
           OmegaWing=None,OmegaWingHW=None,reflect=True,profile=1,NCORES=1):
     # THIS VERSION OF CALC USES DIFFERENT PARALLELIZATION SCHEME...
@@ -1459,7 +1458,7 @@ def CALC0_(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINE
 ##       OmegaStep      OmegaWing    OmegaWingHW    reflect       profile=1
 #       numba.float64,numba.float64,numba.float64,numba.boolean,numba.int64)],
 #       parallel=PARALLEL,fastmath=FASTMATH)
-@njit(parallel=PARALLEL,fastmath=FASTMATH)
+@njit(parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)
 def CALC_test(Omegas,NU,SW,ELOWER,MOLEC_ID,LOCAL_ISO_ID,GAMMA_L,GAMMA_D,DELTA,NLINES,
               OmegaRange=None,OmegaStep=None,OmegaWing=None,OmegaWingHW=None,reflect=True,profile=1):
           

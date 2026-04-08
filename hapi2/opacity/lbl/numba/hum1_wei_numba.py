@@ -4,7 +4,7 @@ from numba import njit
 import numpy as np
 from numpy.fft import fft, fftshift
 
-from .settings import FASTMATH
+from .settings import FASTMATH, CACHE
 
 def compute_L_a(N=24):
     # Computes the function w(z) = exp(-zA2) erfc(-iz) using a rational
@@ -50,7 +50,7 @@ a=[ -1.513746165452782e-10,
 #""";
 a = np.flip(a,axis=0)     
     
-@njit(fastmath=FASTMATH)   # this function should receive a scalar arguments
+@njit(fastmath=FASTMATH,cache=CACHE)   # this function should receive a scalar arguments
 def cef(x,y,L,a):
     z = x + 1.0j*y
     Z = (L+1.0j*z)/(L-1.0j*z); #p = polyval(a,Z); # Polynomial evaluation.
@@ -72,7 +72,7 @@ def cef(x,y,L,a):
 recSqrtPi = 1/np.sqrt(np.pi)
     
 #"""    
-@njit(fastmath=FASTMATH)   # Converted from Fortran version of the paper
+@njit(fastmath=FASTMATH,cache=CACHE)   # Converted from Fortran version of the paper
 def hum1_wei(x,y):    
     cerf = 0+1.0j
     t = y-1.0j*x

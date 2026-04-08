@@ -3,9 +3,10 @@ from numba import njit, types
 #from numba.experimental import jitclass
 
 FASTMATH = True
+CACHE = True
 
 # Placeholder for CPF and CPF3 functions (to be implemented)
-@njit(fastmath=FASTMATH)
+@njit(fastmath=FASTMATH,cache=CACHE)
 def cpf_stub(x, y):
     # Example implementation using a simple approximation (replace with actual logic)
     # This is a dummy and may not be accurate
@@ -13,7 +14,7 @@ def cpf_stub(x, y):
     w = np.exp(-z**2) * (1.0 - 1.0 / (1.0 + 2.0j * z))  # Placeholder for Faddeeva function
     return w.real, w.imag
 
-@njit(fastmath=FASTMATH)
+@njit(fastmath=FASTMATH,cache=CACHE)
 def cpf3_stub(x, y):
     # Similar to CPF but for different cases (replace with actual logic)
     return cpf(x, y)  # Placeholder
@@ -29,7 +30,7 @@ TT = np.array([0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5,
                10.5, 11.5, 12.5, 13.5, 14.5], dtype=np.float64)
 pipwoeronehalf = 0.564189583547756  # 1/√π constant
 
-@njit(fastmath=FASTMATH)
+@njit(fastmath=FASTMATH,cache=CACHE)
 def cpf(x, y):
     # Region 3 calculation for large magnitudes
     if np.sqrt(x**2 + y**2) > 8.0:
@@ -106,7 +107,7 @@ def cpf(x, y):
     
     return wr, wi
 
-@njit(fastmath=FASTMATH)
+@njit(fastmath=FASTMATH,cache=CACHE)
 def cpf3(x, y):
     # Constants
     zone = np.complex128(1.0 + 0.0j)
@@ -134,7 +135,7 @@ def cpf3(x, y):
 @njit(types.UniTuple(types.float64, 2)(
     types.float64, types.float64, types.float64, types.float64,
     types.float64, types.float64, types.float64, types.float64, types.float64
-),fastmath=FASTMATH)
+),fastmath=FASTMATH,cache=CACHE)
 def pcqsdhc(sg0, GamD, Gam0, Gam2, Shift0, Shift2, anuVC, eta, sg):
     cte = np.sqrt(np.log(2.0)) / GamD
     pi = 4.0 * np.arctan(1.0)
@@ -220,7 +221,7 @@ def pcqsdhc(sg0, GamD, Gam0, Gam2, Shift0, Shift2, anuVC, eta, sg):
 @njit(types.UniTuple(types.float64[:], 2)(
     types.float64, types.float64, types.float64, types.float64,
     types.float64, types.float64, types.float64, types.float64, types.float64[:]
-),fastmath=FASTMATH)
+),fastmath=FASTMATH,cache=CACHE)
 def PROFILE_HT(sg0, GamD, Gam0, Gam2, Shift0, Shift2, anuVC, eta, sg):
     # Speed dependent Voigt profile based on HTP.
     # Input parameters:
