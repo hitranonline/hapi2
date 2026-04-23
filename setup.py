@@ -1,10 +1,14 @@
+from pathlib import Path
+
 from setuptools import find_packages, setup
 
-from hapi2.version import __version__
+version_ns = {}
+version_path = Path(__file__).parent / "hapi2" / "version.py"
+exec(version_path.read_text(encoding="utf-8"), version_ns)
 
 setup(
     name="hitran-api2",
-    version=__version__,
+    version=version_ns["__version__"],
     author="Roman Kochanov",
     author_email="",
     description="HITRAN Application Programming Interface (HAPI) v2",
